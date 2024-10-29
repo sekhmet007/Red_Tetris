@@ -1,0 +1,70 @@
+/* styles.css */
+
+/* Style de la page */
+body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    font-family: Arial, sans-serif;
+    background-color: #222;
+    color: #ddd;
+    margin: 0;
+}
+
+h1 {
+    color: #f3f3f3;
+    margin-top: 20px;
+}
+
+.instructions {
+    font-size: 14px;
+    margin-bottom: 20px;
+    color: #bbb;
+}
+
+/* Grille de jeu */
+.grid {
+    display: grid;
+    grid-template-columns: repeat(10, 30px);
+    grid-template-rows: repeat(20, 30px);
+    gap: 2px;
+    background-color: #333;
+    padding: 10px;
+    border: 2px solid #555;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+}
+
+.cell {
+    width: 30px;
+    height: 30px;
+    background-color: #444;
+}
+
+/* Couleurs pour chaque Tetromino */
+.cell.filled-I {
+    background-color: #00f0f0;
+}
+
+.cell.filled-J {
+    background-color: #0000f0;
+}
+
+.cell.filled-L {
+    background-color: #f0a000;
+}
+
+.cell.filled-O {
+    background-color: #f0f000;
+}
+
+.cell.filled-S {
+    background-color: #00f000;
+}
+
+.cell.filled-T {
+    background-color: #a000f0;
+}
+
+.cell.filled-Z {
+    background-color: #f00000;
+}

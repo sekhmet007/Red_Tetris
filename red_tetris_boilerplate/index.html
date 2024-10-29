@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tetris</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(10, 20px);
+    grid-template-rows: repeat(20, 20px);
+    gap: 1px;
+  }
+  .cell {
+    width: 20px;
+    height: 20px;
+    background-color: white;
+    border: 1px solid #ddd;
+  }
+  .filled {
+    background-color: #00FF00;
+  }
+</style>
+</head>
+<body>
+
+  <h1>Tetris</h1>
+  <div class="instructions">
+      Utilisez les flèches pour déplacer et faire pivoter les pièces.
+  </div>
+  <div id="game" class="grid"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
