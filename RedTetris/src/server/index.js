@@ -8,7 +8,6 @@ import { fileURLToPath } from "url";
 import createGame from "./Models/Game.js";
 import createPlayer from "./Models/Player.js";
 
-// Pour résoudre __dirname dans un module ES6
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -17,7 +16,6 @@ const server = http.createServer(app);
 const io = new Server(server);
 const port = 3000;
 
-// Configure Redis
 const client = redis.createClient();
 
 client.on("connect", () => {
@@ -28,14 +26,11 @@ client.on("error", (err) => {
   console.error("Redis connection error:", err);
 });
 
-// Middleware pour parser le JSON
 app.use(express.json());
 
-// Servir les fichiers statiques du client avec un chemin absolu
 const buildPath = path.resolve(__dirname, "../client/red-tetris/build");
 app.use(express.static(buildPath));
 
-// Gestion des scores avec Redis
 app.get("/score/:userId", async (req, res) => {
   const userId = req.params.userId;
   client.get(`score:${userId}`, (err, score) => {
@@ -53,113 +48,192 @@ app.post("/score/:userId", (req, res) => {
   });
 });
 
-// Utilisation de l'URL pour extraire room et playerName
+// Afficher les rooms actives
+app.get("/rooms", (req, res) => {
+  const activeRooms = Object.keys(games).map(roomName => ({
+    roomName,
+    players: Object.keys(games[roomName].players).length,
+    isStarted: games[roomName].isStarted,
+  }));
+  res.json(activeRooms.filter(room => !room.isStarted));
+});
+
 app.get("/:room/:playerName", (req, res) => {
   const { room, playerName } = req.params;
   res.sendFile(path.join(buildPath, "index.html"));
-
-  // Stockage temporaire des informations de connexion
   req.socket.room = room;
   req.socket.playerName = playerName;
   res.sendFile(path.join(buildPath, "index.html"));
 });
 
-// Route par défaut pour servir index.html
+// Route pour le mode solo
+app.get("/solo", (req, res) => {
+  try {
+    const playerName = `Player_${Date.now()}`;
+    const roomName = `Solo_${playerName}`;
+    // Vérifiez que la création de la room fonctionne
+    if (!games[roomName]) {
+      games[roomName] = createGame(roomName);
+    }
+    // Renvoyez explicitement un objet JSON
+    res.json({
+      roomUrl: `http://localhost:3000/?room=${roomName}&playerName=${playerName}`,
+      success: true
+    });
+  } catch (error) {
+    console.error("Erreur lors de la création de la room solo :", error);
+    res.status(500).json({ error: "Impossible de créer la room solo" });
+  }
+});
+
 app.get("*", (req, res) => {
   res.sendFile(path.join(buildPath, "index.html"));
 });
-
-// Gestion des parties de jeu avec Socket.IO
-const games = {}; // Stockage pour les parties en cours
+const games = {};
 
 io.on("connection", (socket) => {
   console.log("A user connected:", socket.id);
 
-  // Événement pour que le joueur rejoigne une salle avec les informations de `room` et `playerName`
   socket.on("joinRoom", ({ room, playerName }) => {
     if (!games[room]) {
-      games[room] = createGame(room);  // Création d'une nouvelle partie si elle n'existe pas encore
+      games[room] = createGame(room);
     }
 
     const game = games[room];
 
-    // Vérifiez si la partie a déjà commencé
     if (game.isStarted) {
-      socket.emit("errorMessage", "La partie a déjà commencé. Veuillez attendre la fin.");
+      socket.emit(
+        "errorMessage",
+        "La partie a déjà commencé. Veuillez attendre la fin."
+      );
       return;
     }
 
-    // Création du joueur et ajout à la salle
-    const player = createPlayer(playerName, socket);
-    game.addPlayer(player, socket);
+    // Ajout du joueur
+    const player = game.addPlayer(playerName, socket);
+    if (!player) {
+      socket.emit("errorMessage", "La partie est pleine.");
+      return;
+    }
+
     socket.join(room);
+    console.log(`Player ${playerName} joined room: ${room}`);
 
-    // Informer les autres joueurs dans la salle qu'un nouveau joueur a rejoint
-    io.to(room).emit("playerJoined", { playerName });
+    // Affiche l'URL de connexion pour inviter d'autres joueurs
+    const inviteUrl = `http://localhost:3000/${room}/${playerName}`;
+    socket.emit("inviteUrl", inviteUrl);
 
-    // Vérifiez si deux joueurs sont dans la salle pour démarrer la partie
+    // Gestion de l'attente d'un deuxième joueur
     const numPlayers = Object.keys(game.players).length;
     if (numPlayers === 1) {
-      // Indiquer au joueur qu'il est en attente d'un deuxième joueur
       socket.emit("waitingForPlayer", "En attente d'un autre joueur...");
     } else if (numPlayers === 2) {
-      // Informer le leader qu'il peut démarrer la partie
       if (game.leaderId === socket.id) {
-        socket.emit("readyToStart", { message: "Vous êtes le leader. Cliquez sur 'Start Game' pour démarrer." });
-        game.isLeader = true;
+        socket.emit("readyToStart", {
+          message:
+            "Vous êtes le leader. Cliquez sur 'Start Game' pour démarrer.",
+        });
       }
-      // Informer tous les joueurs que la partie est prête à démarrer
       io.to(room).emit("readyToStart");
     }
   });
 
-  // Événement pour démarrer la partie - seul le leader peut lancer la partie
-  socket.on("startGame", ({ room }) => {
+  socket.on("joinRoom", ({ room, playerName }) => {
+    if (!games[room]) {
+      games[room] = createGame(room);
+    }
+  
     const game = games[room];
-    if (game && game.leaderId === socket.id && Object.keys(game.players).length >= 2) {
-      game.startGame();
-      io.to(room).emit("gameStarted", { pieces: game.distributePieces() });
+  
+    if (game.isStarted) {
+      socket.emit("errorMessage", "La partie a déjà commencé.");
+      return;
+    }
+  
+    const player = game.addPlayer(playerName, socket);
+    if (!player) {
+      socket.emit("errorMessage", "Room pleine ou nom déjà pris.");
+      return;
+    }
+  
+    socket.join(room);
+    console.log(`${playerName} a rejoint la room ${room}`);
+  
+    // Notifier les joueurs de la liste mise à jour
+    io.to(room).emit("playerListUpdated", {
+      players: Object.values(game.players).map((p) => p.name),
+    });
+  });
+  
+
+
+  socket.on("playerReady", ({ room }) => {
+    const game = games[room];
+    const player = game.getPlayerBySocketId(socket.id);
+    if (player) {
+        player.isReady = true;
+        const allReady = Object.values(game.players).every(p => p.isReady);
+        if (allReady) {
+            io.to(room).emit("readyToStart");
+        }
     }
   });
 
-  // Événement pour les lignes complétées par un joueur
+  socket.on("startGame", ({ room }) => {
+    const game = games[room];
+    if (game.leaderId === socket.id) {
+      game.startGame();
+      io.to(room).emit("gameStarted", { pieces: game.pieceSequence });
+    } else {
+      socket.emit("errorMessage", "Seul le leader peut démarrer la partie.");
+    }
+  });
+
   socket.on("lineComplete", ({ room, lines }) => {
     const game = games[room];
     if (game) {
-      game.handleLineCompletion(socket.id, lines);
-      io.to(room).emit("penaltyApplied", { lines });
+      game.handleLineCompletion(socket.id, lines); // Distribution des pénalités
     }
   });
 
-  // Événement pour la fin de partie pour un joueur
-  socket.on("gameOver", ({ room, playerId }) => {
+  socket.on("gameOver", ({ room }) => {
     const game = games[room];
     if (game) {
-      game.removePlayer(playerId);
-      io.to(room).emit("playerGameOver", { playerId });
-      if (game.isGameOver()) {
-        io.to(room).emit("gameOver", { winner: game.getWinner() });
+      const winnerId = game.checkGameOver();
+      if (winnerId) {
+        io.to(room).emit("gameOver", { winner: game.players[winnerId].name });
+        game.resetGame(); // Réinitialise la room uniquement si nécessaire
       }
     }
   });
 
-  // Déconnexion d'un joueur
   socket.on("disconnect", () => {
     console.log("A user disconnected:", socket.id);
     for (const room in games) {
       const game = games[room];
       const player = game.getPlayerBySocketId(socket.id);
+
       if (player) {
         game.removePlayer(player.id);
-        io.to(room).emit("playerDisconnected", { playerId: player.id });
+
         if (game.isGameOver()) {
           io.to(room).emit("gameOver", { winner: game.getWinner() });
+          delete games[room];
+        } else {
+          // Réattribution du leader si le joueur déconnecté était le leader
+          if (game.leaderId === socket.id) {
+            const newLeaderId = Object.keys(game.players)[0];
+            game.leaderId = newLeaderId;
+            io.to(newLeaderId).emit("youAreLeader"); // Envoie un message au nouveau leader
+          }
+
+          io.to(room).emit("playerDisconnected", { playerId: player.id });
         }
       }
     }
   });
 });
-// Lancer le serveur avec Socket.IO
+
 server.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);
 });

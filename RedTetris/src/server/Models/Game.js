@@ -1,7 +1,6 @@
 // src/server/models/Game.js
 import createPlayer from "./Player.js";
-import  generatePiece  from "./Piece.js";
-
+import generatePiece from "./Piece.js";
 
 function createGame(roomName) {
   const players = {};
@@ -10,11 +9,11 @@ function createGame(roomName) {
   let leaderId = null;
 
   function addPlayer(name, socket) {
-    if (Object.keys(players).length >= 2) return null;
+    if (Object.values(players).some((p) => p.name === name)) return null; // Empêche les doublons de nom
     const player = createPlayer(name, socket);
     players[player.id] = player;
-    if (!leaderId) leaderId = player.id;
-    socket.join(roomName);
+
+    if (!leaderId) leaderId = player.id; // Le premier joueur devient leader par défaut
     return player;
   }
 
@@ -23,22 +22,37 @@ function createGame(roomName) {
     if (leaderId === playerId) {
       const remainingPlayers = Object.keys(players);
       leaderId = remainingPlayers.length > 0 ? remainingPlayers[0] : null;
+      if (leaderId) {
+        players[leaderId].socket.emit("youAreLeader");
+        io.to(roomName).emit("leaderChanged", players[leaderId].name);
+      }
     }
     if (Object.keys(players).length === 0) resetGame();
   }
 
   function distributePieces() {
-    const piece = generatePiece();
-    pieceSequence.push(piece);
-    Object.values(players).forEach((player) => player.sendPiece(piece.clone()));
+    if (pieceSequence.length === 0) {
+      for (let i = 0; i < 100; i++) {
+        pieceSequence.push(...generatePieceSequence());
+      }
+    }
+    Object.values(players).forEach((player) => player.sendPiece(pieceSequence));
   }
 
   function startGame() {
-    if (isStarted) return;
+    if (isStarted) return; // Empêche de redémarrer une partie déjà en cours
     isStarted = true;
-    pieceSequence.length = 0;
-    Object.values(players).forEach((player) => player.reset());
-    distributePieces();
+
+    // Génère une séquence de pièces unique
+    for (let i = 0; i < 100; i++) {
+      pieceSequence.push(generatePiece());
+    }
+
+    // Synchronise les joueurs
+    Object.values(players).forEach((player) => {
+      player.sendPieceSequence(pieceSequence);
+      player.reset();
+    });
   }
 
   function resetGame() {
@@ -46,31 +60,49 @@ function createGame(roomName) {
     Object.values(players).forEach((player) => player.notifyEndGame());
   }
 
-  function handleLineCompletion(playerId, linesCompleted) {
-    const opponentId = Object.keys(players).find((id) => id !== playerId);
-    if (opponentId) {
-      players[opponentId].receivePenaltyLines(linesCompleted);
-    }
+  function handleLineCompletion(playerId, lines) {
+    Object.values(players).forEach((player) => {
+      if (player.id !== playerId) {
+        player.receivePenaltyLines(lines - 1);
+      }
+    });
   }
 
   function getPlayerBySocketId(socketId) {
-    return Object.values(players).find(player => player.socketId === socketId);
+    return Object.values(players).find(
+      (player) => player.socketId === socketId
+    );
   }
 
-  function isReadyToStart() {
-    // Le jeu est prêt à démarrer si deux joueurs sont présents et le jeu n'est pas encore commencé
-    return Object.keys(players).length === 2 && !isStarted;
+  function startCountdown() {
+    if (Object.keys(players).length === 2) {
+      let countdown = 5;
+      const countdownInterval = setInterval(() => {
+        io.to(roomName).emit("countdown", countdown);
+        countdown -= 1;
+        if (countdown === 0) {
+          clearInterval(countdownInterval);
+          startGame();
+        }
+      }, 1000);
+    }
   }
 
-  function isGameOver() {
-    return Object.keys(players).length === 0;
+  function checkGameOver() {
+    const activePlayers = Object.values(players).filter((player) => !player.isGameOver);
+    if (activePlayers.length === 1) {
+      return activePlayers[0].id; // Retourne l'ID du gagnant
+    }
+    return null; // Pas encore terminé
   }
 
-  // Nouvelle fonction getWinner pour identifier le dernier joueur restant
-  function getWinner() {
-    return Object.keys(players)[0] || null;
+  function checkWinner() {
+    if (Object.keys(players).length === 1) {
+      const winner = Object.keys(players)[0];
+      io.to(roomName).emit("gameOver", { winner: players[winner].name });
+      resetGame();
+    }
   }
-
 
   return {
     roomName,
@@ -84,11 +116,10 @@ function createGame(roomName) {
     startGame,
     resetGame,
     handleLineCompletion,
-	  isReadyToStart,
-	  getPlayerBySocketId,
-    isGameOver, 
-    getWinner,
-    isGameOver,
+    getPlayerBySocketId,
+    startCountdown,
+    checkGameOver,
+    checkWinner,
   };
 }
 

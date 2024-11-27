@@ -22,6 +22,16 @@ function createPiece(shape, rotationStates) {
 		clone,
 	};
 }
+
+function generatePieceSequence() {
+	const shapes = [0, 1, 2, 3, 4, 5, 6]; // Les indices des formes
+	const sequence = [];
+	while (sequence.length < 100) {
+	  const shuffled = shapes.sort(() => Math.random() - 0.5); // Mélange aléatoire
+	  sequence.push(...shuffled);
+	}
+	return sequence.slice(0, 100);
+  }
 function generatePiece() {
 	const shapes = [
 		{ shape: 'I', rotationStates: [[

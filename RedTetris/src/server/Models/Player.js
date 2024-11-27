@@ -10,7 +10,9 @@ function createPlayer(name, socket) {
     socket.emit("newPiece", piece);
   }
 
-  function receivePenaltyLines(lines) {
+  function receivePenaltyLines(lines, fromPlayer = null) {
+    if (fromPlayer === id) return; // Ignore les pénalités venant de soi-même
+
     for (let i = 0; i < lines; i++) {
       terrain.pop();
       terrain.unshift(Array(10).fill(-1)); // Ligne de pénalité indestructible

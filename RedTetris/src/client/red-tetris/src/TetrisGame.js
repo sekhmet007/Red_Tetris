@@ -158,79 +158,144 @@ function TetrisGame() {
   const [fastDrop, setFastDrop] = useState(false);
   const [mode, setMode] = useState(null);
   const [isLeader, setIsLeader] = useState(false);
-  const [waitingMessage, setWaitingMessage] = useState(null);
-  const [isReadyToStart, setIsReadyToStart] = useState(false);
-
+  const [rooms, setRooms] = useState([]);
 
   // Récupérer room et playerName à partir de l'URL
   const params = new URLSearchParams(window.location.search);
-  const room = params.get("room") || "defaultRoom";
-  const playerName = params.get("playerName") || `Player_${socket.id}`;
-
+  const [room, setRoom] = useState(() => params.get("room"));
+  if (!room && mode === "multiplayer") {
+    setMode(null);
+  }
+  const [playerName, setPlayerName] = useState(() =>
+    params.get("playerName") || `Player_${socket.id}`
+  );
 
   useEffect(() => {
+    fetch("/rooms")
+      .then((res) => res.json())
+      .then((data) => setRooms(data));
+  }, []);
+
+  useEffect(() => {
+    console.log("Mode:", mode);
+    console.log("Room:", room);
+    console.log("PlayerName:", playerName);
+
     if (!mode) return;
 
     if (mode === "multiplayer") {
-      // Envoie les informations de salle et de nom de joueur au serveur
-      socket.emit("joinRoom", { room, playerName });
-
-      socket.on("waitingForPlayer", (message) => {
-        setWaitingMessage(message);
-      });
-
-      socket.on("leaderAssigned", (isLeaderStatus) => {
-        setIsLeader(isLeaderStatus); // Le serveur renvoie si le joueur est le leader
-        if (isLeaderStatus) setWaitingMessage("En attente d'un autre joueur...");
-      });
-
-      socket.on("readyToStart", () => {
-        setIsReadyToStart(true);
-        setWaitingMessage(null); // Supprimer le message d'attente une fois prêt
-      });
-
-      socket.on("gameStarted", ({ pieces }) => {
-        setNumForme(pieces[0]);
-        setScore(0);
-        setGameOver(false);
-        setWaitingMessage(null);
-        setIsReadyToStart(false);
-      });
-
-      socket.on("penaltyApplied", ({ lines }) => {
-        const newGrille = [...grille];
-        for (let i = 0; i < lines; i++) {
-          newGrille.shift();
-          newGrille.push(Array(LARGEUR_GRILLE).fill(1));
-        }
-        setGrille(newGrille);
-      });
-
-      socket.on("gameOver", ({ winner }) => {
-        setGameOver(true);
-        alert(`Game Over! Winner: ${winner}`);
-      });
-
-      return () => {
-        socket.off("waitingForPlayer");
-        socket.off("leaderAssigned");
-        socket.off("readyToStart");
-        socket.off("gameStarted");
-        socket.off("penaltyApplied");
-        socket.off("gameOver");
-      };
+      fetch("/rooms")
+        .then((res) => res.json())
+        .then((data) => setRooms(data))
+        .catch((error) =>
+          console.error("Erreur lors de la récupération des rooms :", error)
+        );
     }
+    socket.emit("joinRoom", { room, playerName });
+
+    socket.on("gameStarted", ({ pieces }) => {
+      console.log("Game started with pieces:", pieces);
+
+      setNumForme(pieces[0]);
+      setScore(0);
+      setGameOver(false);
+    });
+
+    socket.on("penaltyApplied", ({ lines }) => {
+      const newGrille = [...grille];
+      for (let i = 0; i < lines; i++) {
+        newGrille.shift();
+        newGrille.push(Array(LARGEUR_GRILLE).fill(1));
+      }
+      setGrille(newGrille);
+    });
+
+    socket.on("gameOver", ({ winner }) => {
+      setGameOver(true);
+      alert(`Game Over! Winner: ${winner}`);
+    });
+
+    return () => {
+      socket.off("waitingForPlayer");
+      socket.off("leaderAssigned");
+      socket.off("readyToStart");
+      socket.off("gameStarted");
+      socket.off("penaltyApplied");
+      socket.off("gameOver");
+    };
   }, [mode, grille, room, playerName]);
 
+  useEffect(() => {
+    socket.on("youAreLeader", () => {
+      setIsLeader(true);
+    });
+
+    return () => {
+      socket.off("youAreLeader");
+    };
+  }, []);
+
+  useEffect(() => {
+    console.log("Mode:", mode);
+    console.log("Room:", room);
+    console.log("PlayerName:", playerName);
+
+    if (!mode) return;
+    if (mode === "solo" && room && playerName) {
+      console.log("Mode solo détecté, initialisation du jeu...");
+    setNumForme(Math.floor(Math.random() * formes.length)); // Choisir une pièce
+    setScore(0); // Réinitialiser le score
+    setGameOver(false); // Réinitialiser l'état "Game Over"
+    setGrille(
+      Array.from({ length: HAUTEUR_GRILLE }, () => Array(LARGEUR_GRILLE).fill(0))
+    );
+    }
+  }, [mode, room, playerName]);
+
+  const joinRoom = (roomName) => {
+    const playerName = prompt("Entrez votre nom");
+    window.location.href = `http://localhost:3000/${roomName}/${playerName}`;
+  };
+
   const startSoloGame = () => {
-    setMode("solo");
-    setScore(0);
-    resetGame();
+    fetch("/solo")
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+      })
+      .then((data) => {
+        console.log("Données de /solo :", data);
+        if (data.roomUrl) {
+          setMode("solo"); // Définir le mode en solo
+          const urlParams = new URL(data.roomUrl);
+          const newRoom = urlParams.searchParams.get("room");
+          const newPlayerName = urlParams.searchParams.get("playerName");
+          console.log("Nouvelle Room :", newRoom);
+          console.log("Nom du Joueur :", newPlayerName);
+          setRoom(newRoom);
+          setPlayerName(newPlayerName);
+          window.history.pushState(
+            null,
+            "",
+            `/ ? room=${newRoom}&playerName=${newPlayerName}`
+          );
+        } else {
+          console.error("Erreur : l'URL de la room solo est manquante.");
+        }
+      })
+      .catch((error) => {
+        console.error("Erreur lors de la création de la room solo :", error);
+        alert("Impossible de créer une partie solo. Réessayez.");
+      });
   };
 
   const handleStartGame = () => {
     if (isLeader) {
       socket.emit("startGame", { room });
+    } else {
+      socket.emit("playerReady", { room });
     }
   };
 
@@ -276,23 +341,26 @@ function TetrisGame() {
     [formX, formY, rotation, grille, numForme]
   );
 
-  const effacerLignesCompletes = useCallback((newGrille) => {
-    let lignesEffacees = 0;
-    for (let y = 0; y < HAUTEUR_GRILLE; y++) {
-      if (newGrille[y].every((cell) => cell === 1)) {
-        newGrille.splice(y, 1);
-        newGrille.unshift(Array(LARGEUR_GRILLE).fill(0));
-        lignesEffacees++;
+  const effacerLignesCompletes = useCallback(
+    (newGrille) => {
+      let lignesEffacees = 0;
+      for (let y = 0; y < HAUTEUR_GRILLE; y++) {
+        if (newGrille[y].every((cell) => cell === 1)) {
+          newGrille.splice(y, 1);
+          newGrille.unshift(Array(LARGEUR_GRILLE).fill(0));
+          lignesEffacees++;
+        }
       }
-    }
-    if (lignesEffacees > 0) {
-      socket.emit("lineComplete", {
-        room,
-        lines: lignesEffacees,
-      });
-    }
-    return lignesEffacees;
-  }, [room]);
+      if (lignesEffacees > 0) {
+        socket.emit("lineComplete", {
+          room,
+          lines: lignesEffacees,
+        });
+      }
+      return lignesEffacees;
+    },
+    [room]
+  );
 
   // Fixe la forme et supprime les lignes complètes
   const fixerForme = useCallback(() => {
@@ -318,27 +386,24 @@ function TetrisGame() {
     setGrille(newGrille);
   }, [grille, formX, formY, rotation, numForme, score, effacerLignesCompletes]);
 
-  // Déplace la pièce automatiquement
+
   useEffect(() => {
     if (!mode || gameOver) return; // Ajout de la condition pour vérifier que le mode est sélectionné
-    socket.emit("gameOver", { room, playerId: socket.id });
-
-
-    const interval = setInterval(
-      () => {
-        if (collision(0, 1)) {
-          fixerForme();
-          setFormX(X_INITIAL);
-          setFormY(Y_INITIAL);
-          setRotation(0);
-          setNumForme(Math.floor(Math.random() * formes.length));
-          if (collision(0, 0)) setGameOver(true);
-        } else {
-          setFormY((prev) => prev + 1);
+    const interval = setInterval(() => {
+      if (collision(0, 1)) {
+        fixerForme();
+        setFormX(X_INITIAL);
+        setFormY(Y_INITIAL);
+        setRotation(0);
+        setNumForme(Math.floor(Math.random() * formes.length));
+        if (collision(0, 0)) {
+          setGameOver(true); // Game Over uniquement si collision initiale
+          socket.emit("gameOver", { room, playerId: socket.id });
         }
-      },
-      fastDrop ? 50 : delay
-    );
+      } else {
+        setFormY((prev) => prev + 1);
+      }
+    }, fastDrop ? 50 : delay);
     return () => clearInterval(interval);
   }, [collision, fixerForme, gameOver, delay, fastDrop, room, mode]);
 
@@ -373,7 +438,6 @@ function TetrisGame() {
     };
   }, [collision, rotation, numForme, gameOver]);
 
-
   // Fonction pour obtenir la grille d'affichage avec la pièce en mouvement
   const getDisplayGrid = () => {
     const displayGrid = grille.map((row) => [...row]); // Copie de la grille existante
@@ -396,26 +460,47 @@ function TetrisGame() {
     return displayGrid;
   };
 
+  const handleModeSelection = (selectedMode) => {
+    if (selectedMode === "solo") {
+      startSoloGame(); // Redirige automatiquement
+    } else if (selectedMode === "multiplayer") {
+      setMode("multiplayer"); // Affiche les rooms disponibles
+    }
+  };
 
-  
   // Dans le rendu JSX :
   return (
     <div className="tetris-game">
       <div className="score">Score: {score}</div>
       {!mode && (
         <div className="mode-selector">
-          <button onClick={startSoloGame}>Mode Solo</button>
-          <button onClick={() => setMode("multiplayer")}>Mode Multijoueur</button>
+          <button onClick={() => handleModeSelection("solo")}>Mode Solo</button>
+          <button onClick={() => handleModeSelection("multiplayer")}>
+            Mode Multijoueur
+          </button>
         </div>
       )}
-      {mode === "multiplayer" && waitingMessage && (
-        <div className="waiting-message">{waitingMessage}</div>
+      {mode === "multiplayer" && (
+        <div className="room-list">
+          {rooms.map((room) => (
+            <div key={room.roomName}>
+              Room: {room.roomName} - Players: {room.players} - Status:{" "}
+              {room.isStarted ? "In progress" : "Waiting"}
+              {!room.isStarted && (
+                <button onClick={() => joinRoom(room.roomName)}>
+                  Join Room
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
       )}
-      {isLeader && isReadyToStart && mode === "multiplayer" && (
-        <button className="onClick" onClick={handleStartGame}>
-          Start Game
+      {isLeader && rooms.find((r) => r.roomName === room)?.players >= 2 && (
+        <button onClick={handleStartGame}>
+          Démarrer la Partie
         </button>
       )}
+      {room && playerName && (
       <div className="tetris-grid">
         {getDisplayGrid().map((row, y) =>
           row.map((cell, x) => (
@@ -426,14 +511,24 @@ function TetrisGame() {
           ))
         )}
       </div>
+      )}
       {gameOver && (
         <div className="game-over">
           <h2>Game Over</h2>
-          <button onClick={resetGame}>Rejouer</button>
+          <div className="game-over-buttons">
+            <button onClick={resetGame}>Rejouer</button>
+            <button
+              className="quit-button"
+              onClick={() => {
+                window.location.href = "http://localhost:3000"; // Retour à la page d'accueil
+              }}
+            >
+              Quitter
+            </button>
+          </div>
         </div>
       )}
     </div>
   );
 }
-
 export default TetrisGame;
