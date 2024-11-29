@@ -1,6 +1,7 @@
 // src/server/models/Game.js
 import createPlayer from "./Player.js";
 import generatePiece from "./Piece.js";
+import generatePieceSequence from "./Piece.js";
 
 function createGame(roomName) {
   const players = {};
@@ -43,7 +44,6 @@ function createGame(roomName) {
     if (isStarted) return; // Empêche de redémarrer une partie déjà en cours
     isStarted = true;
 
-    // Génère une séquence de pièces unique
     for (let i = 0; i < 100; i++) {
       pieceSequence.push(generatePiece());
     }
@@ -53,11 +53,19 @@ function createGame(roomName) {
       player.sendPieceSequence(pieceSequence);
       player.reset();
     });
+    io.to(roomName).emit("gameStarted", { pieces: pieceSequence });
   }
 
   function resetGame() {
     isStarted = false;
-    Object.values(players).forEach((player) => player.notifyEndGame());
+    pieceSequence.length = 0; // Réinitialiser la séquence des pièces
+    Object.values(players).forEach((player) => {
+      if (Object.keys(players).length > 1) {
+        // Mode multijoueur : notifier les joueurs
+        player.notifyEndGame();
+      }
+      player.reset(); // Réinitialiser l'état du joueur (solo et multijoueur)
+    });
   }
 
   function handleLineCompletion(playerId, lines) {
@@ -88,6 +96,20 @@ function createGame(roomName) {
     }
   }
 
+  function handlePlayerGameOver(playerId) {
+    const player = players[playerId];
+    if (!player) return;
+
+    player.notifyEndGame();
+    removePlayer(playerId);
+
+    if (checkGameOver()) {
+      const winnerId = checkGameOver();
+      io.to(roomName).emit("gameOver");
+      resetGame();
+    }
+  }
+
   function checkGameOver() {
     const activePlayers = Object.values(players).filter((player) => !player.isGameOver);
     if (activePlayers.length === 1) {
@@ -99,7 +121,7 @@ function createGame(roomName) {
   function checkWinner() {
     if (Object.keys(players).length === 1) {
       const winner = Object.keys(players)[0];
-      io.to(roomName).emit("gameOver", { winner: players[winner].name });
+      io.to(roomName).emit("gameOver");
       resetGame();
     }
   }
@@ -120,6 +142,7 @@ function createGame(roomName) {
     startCountdown,
     checkGameOver,
     checkWinner,
+    handlePlayerGameOver,
   };
 }
 

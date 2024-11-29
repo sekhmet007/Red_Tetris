@@ -163,9 +163,7 @@ function TetrisGame() {
   // Récupérer room et playerName à partir de l'URL
   const params = new URLSearchParams(window.location.search);
   const [room, setRoom] = useState(() => params.get("room"));
-  if (!room && mode === "multiplayer") {
-    setMode(null);
-  }
+
   const [playerName, setPlayerName] = useState(() =>
     params.get("playerName") || `Player_${socket.id}`
   );
@@ -188,10 +186,14 @@ function TetrisGame() {
         .then((res) => res.json())
         .then((data) => setRooms(data))
         .catch((error) =>
-          console.error("Erreur lors de la récupération des rooms :", error)
+        console.error("Erreur lors de la récupération des rooms :", error)
         );
     }
     socket.emit("joinRoom", { room, playerName });
+
+    socket.on("readyToStart", () => {
+      alert("Tous les joueurs sont prêts. Le leader peut démarrer !");
+    });
 
     socket.on("gameStarted", ({ pieces }) => {
       console.log("Game started with pieces:", pieces);
@@ -211,12 +213,13 @@ function TetrisGame() {
     });
 
     socket.on("gameOver", ({ winner }) => {
-      setGameOver(true);
       alert(`Game Over! Winner: ${winner}`);
+      setGameOver(true);
+      setMode(null);
+      window.location.href = "http://localhost:3000"; // Redirection
     });
 
     return () => {
-      socket.off("waitingForPlayer");
       socket.off("leaderAssigned");
       socket.off("readyToStart");
       socket.off("gameStarted");
@@ -236,6 +239,13 @@ function TetrisGame() {
   }, []);
 
   useEffect(() => {
+    if (room && playerName) {
+      console.log(`Room sélectionnée : ${room}, Joueur : ${playerName}`);
+      socket.emit("joinRoom", { room, playerName });
+    }
+  }, [room, playerName]);
+
+  useEffect(() => {
     console.log("Mode:", mode);
     console.log("Room:", room);
     console.log("PlayerName:", playerName);
@@ -253,8 +263,19 @@ function TetrisGame() {
   }, [mode, room, playerName]);
 
   const joinRoom = (roomName) => {
+    if (!roomName || roomName === "null") {
+      alert("Room invalide. Veuillez sélectionner une autre room.");
+      return;
+    }
     const playerName = prompt("Entrez votre nom");
-    window.location.href = `http://localhost:3000/${roomName}/${playerName}`;
+    if (playerName) {
+      setRoom(roomName);
+      setPlayerName(playerName);
+      socket.emit("joinRoom", { room: roomName, playerName });
+      window.history.pushState(null, "", `/${roomName}/${playerName}`);
+    } else {
+      alert("Nom du joueur requis !");
+    }
   };
 
   const startSoloGame = () => {
@@ -291,11 +312,37 @@ function TetrisGame() {
       });
   };
 
+  const startMultiplayerGame = () => {
+    console.log("Démarrage du mode multijoueur...");
+    setMode("multiplayer");
+    fetch("/rooms")
+  .then((response) => {
+    if (!response.ok) {
+      throw new Error(`Erreur HTTP : ${response.status}`);
+    }
+    return response.json();
+  })
+  .then((rooms) => {
+    console.log("Rooms récupérées avant filtrage :", rooms);
+    const validRooms = rooms.filter((room) => room.roomName && room.roomName !== "null");
+    console.log("Rooms valides :", validRooms);
+    setRooms(validRooms); // Mettre à jour uniquement les rooms valides
+  })
+  .catch((error) => {
+    console.error("Erreur lors de la récupération des rooms :", error);
+    alert("Impossible de récupérer les rooms. Veuillez réessayer.");
+  });
+  };
+
   const handleStartGame = () => {
+    if (!room || room === "null") {
+      alert("Veuillez sélectionner une room valide avant de démarrer !");
+      return;
+    }
     if (isLeader) {
       socket.emit("startGame", { room });
     } else {
-      socket.emit("playerReady", { room });
+      alert("Seul le leader peut démarrer la partie !");
     }
   };
 
@@ -461,10 +508,13 @@ function TetrisGame() {
   };
 
   const handleModeSelection = (selectedMode) => {
+    console.log("Mode sélectionné :", selectedMode);
     if (selectedMode === "solo") {
       startSoloGame(); // Redirige automatiquement
     } else if (selectedMode === "multiplayer") {
-      setMode("multiplayer"); // Affiche les rooms disponibles
+      setRoom(null); // Réinitialiser la room sélectionnée
+      setPlayerName(null); // Réinitialiser le nom du joueur
+      startMultiplayerGame();
     }
   };
 
@@ -482,21 +532,26 @@ function TetrisGame() {
       )}
       {mode === "multiplayer" && (
         <div className="room-list">
-          {rooms.map((room) => (
-            <div key={room.roomName}>
-              Room: {room.roomName} - Players: {room.players} - Status:{" "}
-              {room.isStarted ? "In progress" : "Waiting"}
-              {!room.isStarted && (
-                <button onClick={() => joinRoom(room.roomName)}>
-                  Join Room
-                </button>
-              )}
-            </div>
-          ))}
+          <h2>Rooms disponibles</h2>
+          <ul>
+            {rooms.map((room, index) => (
+              <li key={index} className="room-item">
+                <p>
+                  <strong>{room.roomName}</strong> - Joueurs : {room.players} -{" "}
+                  {room.isStarted ? "En cours" : "En attente"}
+                </p>
+                {!room.isStarted && (
+                  <button onClick={() => joinRoom(room.roomName)}>
+                    Rejoindre cette room
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
         </div>
       )}
       {isLeader && rooms.find((r) => r.roomName === room)?.players >= 2 && (
-        <button onClick={handleStartGame}>
+        <button onClick={() => handleStartGame()}>
           Démarrer la Partie
         </button>
       )}

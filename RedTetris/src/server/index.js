@@ -48,14 +48,33 @@ app.post("/score/:userId", (req, res) => {
   });
 });
 
-// Afficher les rooms actives
+const generateRoomName = () => {
+  let roomNumber = 0;
+  while (games[`Room_${roomNumber}`]) {
+    roomNumber++;
+  }
+  return `Room_${roomNumber}`;
+};
+
+// Gestion des rooms disponibles
 app.get("/rooms", (req, res) => {
-  const activeRooms = Object.keys(games).map(roomName => ({
+  // Maintenir 3 rooms disponibles
+  while (
+    Object.keys(games).filter((room) => !games[room].isStarted).length < 3
+  ) {
+    const roomName = generateRoomName();
+    games[roomName] = createGame(roomName);
+  }
+
+  const activeRooms = Object.keys(games).map((roomName) => ({
     roomName,
     players: Object.keys(games[roomName].players).length,
     isStarted: games[roomName].isStarted,
   }));
-  res.json(activeRooms.filter(room => !room.isStarted));
+
+  res.json(
+    activeRooms.filter((room) => room.roomName && room.roomName !== "null")
+  );
 });
 
 app.get("/:room/:playerName", (req, res) => {
@@ -78,7 +97,7 @@ app.get("/solo", (req, res) => {
     // Renvoyez explicitement un objet JSON
     res.json({
       roomUrl: `http://localhost:3000/?room=${roomName}&playerName=${playerName}`,
-      success: true
+      success: true,
     });
   } catch (error) {
     console.error("Erreur lors de la création de la room solo :", error);
@@ -96,7 +115,7 @@ io.on("connection", (socket) => {
 
   socket.on("joinRoom", ({ room, playerName }) => {
     if (!games[room]) {
-      games[room] = createGame(room);
+      games[room] = createGame(room); // Crée la room si elle n'existe pas
     }
 
     const game = games[room];
@@ -112,75 +131,55 @@ io.on("connection", (socket) => {
     // Ajout du joueur
     const player = game.addPlayer(playerName, socket);
     if (!player) {
-      socket.emit("errorMessage", "La partie est pleine.");
-      return;
-    }
-
-    socket.join(room);
-    console.log(`Player ${playerName} joined room: ${room}`);
-
-    // Affiche l'URL de connexion pour inviter d'autres joueurs
-    const inviteUrl = `http://localhost:3000/${room}/${playerName}`;
-    socket.emit("inviteUrl", inviteUrl);
-
-    // Gestion de l'attente d'un deuxième joueur
-    const numPlayers = Object.keys(game.players).length;
-    if (numPlayers === 1) {
-      socket.emit("waitingForPlayer", "En attente d'un autre joueur...");
-    } else if (numPlayers === 2) {
-      if (game.leaderId === socket.id) {
-        socket.emit("readyToStart", {
-          message:
-            "Vous êtes le leader. Cliquez sur 'Start Game' pour démarrer.",
-        });
-      }
-      io.to(room).emit("readyToStart");
-    }
-  });
-
-  socket.on("joinRoom", ({ room, playerName }) => {
-    if (!games[room]) {
-      games[room] = createGame(room);
-    }
-  
-    const game = games[room];
-  
-    if (game.isStarted) {
-      socket.emit("errorMessage", "La partie a déjà commencé.");
-      return;
-    }
-  
-    const player = game.addPlayer(playerName, socket);
-    if (!player) {
       socket.emit("errorMessage", "Room pleine ou nom déjà pris.");
       return;
     }
-  
+
+    // Assigner le leader si aucun leader n'est défini
+    if (!game.leaderId) {
+      game.leaderId = socket.id;
+      socket.emit("youAreLeader"); // Notifie le leader
+    }
+
     socket.join(room);
     console.log(`${playerName} a rejoint la room ${room}`);
-  
+
     // Notifier les joueurs de la liste mise à jour
     io.to(room).emit("playerListUpdated", {
       players: Object.values(game.players).map((p) => p.name),
     });
-  });
-  
 
+    // Gestion de l'attente des joueurs
+    const numPlayers = Object.keys(game.players).length;
+    if (numPlayers === 1) {
+      socket.emit("waitingForPlayer", "En attente d'un autre joueur...");
+    } else if (numPlayers >= 2) {
+      io.to(room).emit("");
+    }
+  });
 
   socket.on("playerReady", ({ room }) => {
     const game = games[room];
     const player = game.getPlayerBySocketId(socket.id);
     if (player) {
-        player.isReady = true;
-        const allReady = Object.values(game.players).every(p => p.isReady);
-        if (allReady) {
-            io.to(room).emit("readyToStart");
-        }
+      player.isReady = true;
+      const allReady = Object.values(game.players).every((p) => p.isReady);
+      if (allReady) {
+        io.to(room).emit("readyToStart");
+      }
     }
   });
 
   socket.on("startGame", ({ room }) => {
     const game = games[room];
+    if (!game || Object.keys(game.players).length < 2) {
+      socket.emit(
+        "errorMessage",
+        "Vous devez avoir au moins deux joueurs pour démarrer la partie !"
+      );
+      return;
+    }
+
     if (game.leaderId === socket.id) {
       game.startGame();
       io.to(room).emit("gameStarted", { pieces: game.pieceSequence });

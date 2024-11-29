@@ -148,4 +148,4 @@ function generatePiece() {
 	return createPiece(selectedShape.shape, selectedShape.rotationStates);
 }
 
-export default { createPiece, generatePiece };
+export default { createPiece, generatePiece, generatePieceSequence };
