@@ -156,111 +156,106 @@ function TetrisGame() {
   const [delay, setDelay] = useState(250);
   const [gameOver, setGameOver] = useState(false);
   const [fastDrop, setFastDrop] = useState(false);
-  const [mode, setMode] = useState(null);
   const [isLeader, setIsLeader] = useState(false);
   const [rooms, setRooms] = useState([]);
+  const [pieceSequence, setPieceSequence] = useState([]);
+  const [pieceIndex, setPieceIndex] = useState(0);  
 
   // Récupérer room et playerName à partir de l'URL
   const params = new URLSearchParams(window.location.search);
   const [room, setRoom] = useState(() => params.get("room"));
-
   const [playerName, setPlayerName] = useState(() =>
-    params.get("playerName") || `Player_${socket.id}`
-  );
+     params.get("playerName") || `Player_${socket.id}`);
+  const [mode, setMode] = useState(() => params.get("mode"));
 
   useEffect(() => {
-    fetch("/rooms")
-      .then((res) => res.json())
-      .then((data) => setRooms(data));
-  }, []);
+    // Mise à jour des rooms pour le multijoueur
+    if (mode === "multiplayer") {
+      fetch("/rooms")
+        .then((res) => res.json())
+        .then((data) => setRooms(data))
+        .catch((error) => console.error("Erreur lors de la récupération des rooms :", error));
+    }
+  }, [mode]);
 
   useEffect(() => {
     console.log("Mode:", mode);
     console.log("Room:", room);
     console.log("PlayerName:", playerName);
 
-    if (!mode) return;
+    if (!mode || !room || !playerName) return;
+
+    // Émettre l'événement `joinRoom` avec le mode
+    socket.emit("joinRoom", { room, playerName, mode });
 
     if (mode === "multiplayer") {
-      fetch("/rooms")
-        .then((res) => res.json())
-        .then((data) => setRooms(data))
-        .catch((error) =>
-        console.error("Erreur lors de la récupération des rooms :", error)
-        );
-    }
-    socket.emit("joinRoom", { room, playerName });
+      // Événements spécifiques au multijoueur
+      socket.on("youAreLeader", () => {
+        setIsLeader(true);
+      });
 
-    socket.on("readyToStart", () => {
-      alert("Tous les joueurs sont prêts. Le leader peut démarrer !");
-    });
+      socket.on("readyToStart", () => {
+        alert("Tous les joueurs sont prêts. Le leader peut démarrer !");
+      });
+
+      socket.on("penaltyApplied", ({ lines }) => {
+        const newGrille = [...grille];
+        for (let i = 0; i < lines; i++) {
+          newGrille.shift();
+          newGrille.push(Array(LARGEUR_GRILLE).fill(1));
+        }
+        setGrille(newGrille);
+      });
+
+      socket.on("gameOver", ({ winner }) => {
+        alert(`Game Over! Winner: ${winner}`);
+        setGameOver(true);
+        setMode(null);
+        window.location.href = "http://localhost:3000"; // Redirection
+      });
+    } else if (mode === "solo") {
+      // Événements spécifiques au mode solo
+      socket.on("gameStarted", ({ pieces }) => {
+        console.log("Game started with pieces:", pieces);
+        setNumForme(pieces[0]);
+        setScore(0);
+        setGameOver(false);
+        setGrille(
+          Array.from({ length: HAUTEUR_GRILLE }, () => Array(LARGEUR_GRILLE).fill(0))
+        );
+      });
+
+      socket.on("gameOver", () => {
+        alert("Game Over!");
+        setGameOver(true);
+      });
+    }
 
     socket.on("gameStarted", ({ pieces }) => {
-      console.log("Game started with pieces:", pieces);
-
-      setNumForme(pieces[0]);
       setScore(0);
       setGameOver(false);
-    });
-
-    socket.on("penaltyApplied", ({ lines }) => {
-      const newGrille = [...grille];
-      for (let i = 0; i < lines; i++) {
-        newGrille.shift();
-        newGrille.push(Array(LARGEUR_GRILLE).fill(1));
+      setGrille(
+        Array.from({ length: HAUTEUR_GRILLE }, () => Array(LARGEUR_GRILLE).fill(0))
+      );
+    
+      if (mode === "multiplayer") {
+        setPieceSequence(pieces);
+        setPieceIndex(0);
+        setNumForme(pieces[0]);
+      } else if (mode === "solo") {
+        setNumForme(Math.floor(Math.random() * formes.length));
       }
-      setGrille(newGrille);
-    });
-
-    socket.on("gameOver", ({ winner }) => {
-      alert(`Game Over! Winner: ${winner}`);
-      setGameOver(true);
-      setMode(null);
-      window.location.href = "http://localhost:3000"; // Redirection
     });
 
     return () => {
-      socket.off("leaderAssigned");
+      socket.off("youAreLeader");
       socket.off("readyToStart");
       socket.off("gameStarted");
       socket.off("penaltyApplied");
       socket.off("gameOver");
     };
-  }, [mode, grille, room, playerName]);
+  }, [mode, room, playerName, grille]);
 
-  useEffect(() => {
-    socket.on("youAreLeader", () => {
-      setIsLeader(true);
-    });
-
-    return () => {
-      socket.off("youAreLeader");
-    };
-  }, []);
-
-  useEffect(() => {
-    if (room && playerName) {
-      console.log(`Room sélectionnée : ${room}, Joueur : ${playerName}`);
-      socket.emit("joinRoom", { room, playerName });
-    }
-  }, [room, playerName]);
-
-  useEffect(() => {
-    console.log("Mode:", mode);
-    console.log("Room:", room);
-    console.log("PlayerName:", playerName);
-
-    if (!mode) return;
-    if (mode === "solo" && room && playerName) {
-      console.log("Mode solo détecté, initialisation du jeu...");
-    setNumForme(Math.floor(Math.random() * formes.length)); // Choisir une pièce
-    setScore(0); // Réinitialiser le score
-    setGameOver(false); // Réinitialiser l'état "Game Over"
-    setGrille(
-      Array.from({ length: HAUTEUR_GRILLE }, () => Array(LARGEUR_GRILLE).fill(0))
-    );
-    }
-  }, [mode, room, playerName]);
 
   const joinRoom = (roomName) => {
     if (!roomName || roomName === "null") {
@@ -271,8 +266,8 @@ function TetrisGame() {
     if (playerName) {
       setRoom(roomName);
       setPlayerName(playerName);
-      socket.emit("joinRoom", { room: roomName, playerName });
-      window.history.pushState(null, "", `/${roomName}/${playerName}`);
+      setMode("multiplayer"); // Définir le mode sur multijoueur
+      window.history.pushState(null, "", `/?room=${roomName}&playerName=${playerName}&mode=multiplayer`);
     } else {
       alert("Nom du joueur requis !");
     }
@@ -289,18 +284,19 @@ function TetrisGame() {
       .then((data) => {
         console.log("Données de /solo :", data);
         if (data.roomUrl) {
-          setMode("solo"); // Définir le mode en solo
           const urlParams = new URL(data.roomUrl);
           const newRoom = urlParams.searchParams.get("room");
           const newPlayerName = urlParams.searchParams.get("playerName");
+          const newMode = urlParams.searchParams.get("mode") || "solo";
           console.log("Nouvelle Room :", newRoom);
           console.log("Nom du Joueur :", newPlayerName);
+          setMode(newMode);
           setRoom(newRoom);
           setPlayerName(newPlayerName);
           window.history.pushState(
             null,
             "",
-            `/ ? room=${newRoom}&playerName=${newPlayerName}`
+            `/?room=${newRoom}&playerName=${newPlayerName}&mode=${newMode}`
           );
         } else {
           console.error("Erreur : l'URL de la room solo est manquante.");
@@ -312,27 +308,29 @@ function TetrisGame() {
       });
   };
 
+
   const startMultiplayerGame = () => {
     console.log("Démarrage du mode multijoueur...");
     setMode("multiplayer");
     fetch("/rooms")
-  .then((response) => {
-    if (!response.ok) {
-      throw new Error(`Erreur HTTP : ${response.status}`);
-    }
-    return response.json();
-  })
-  .then((rooms) => {
-    console.log("Rooms récupérées avant filtrage :", rooms);
-    const validRooms = rooms.filter((room) => room.roomName && room.roomName !== "null");
-    console.log("Rooms valides :", validRooms);
-    setRooms(validRooms); // Mettre à jour uniquement les rooms valides
-  })
-  .catch((error) => {
-    console.error("Erreur lors de la récupération des rooms :", error);
-    alert("Impossible de récupérer les rooms. Veuillez réessayer.");
-  });
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`Erreur HTTP : ${response.status}`);
+        }
+        return response.json();
+      })
+      .then((rooms) => {
+        console.log("Rooms récupérées avant filtrage :", rooms);
+        const validRooms = rooms.filter((room) => room.roomName && room.roomName !== "null");
+        console.log("Rooms valides :", validRooms);
+        setRooms(validRooms); // Mettre à jour uniquement les rooms valides
+      })
+      .catch((error) => {
+        console.error("Erreur lors de la récupération des rooms :", error);
+        alert("Impossible de récupérer les rooms. Veuillez réessayer.");
+      });
   };
+
 
   const handleStartGame = () => {
     if (!room || room === "null") {
@@ -348,20 +346,12 @@ function TetrisGame() {
 
   // Réinitialise le jeu
   const resetGame = useCallback(() => {
-    setGrille(
-      Array.from({ length: HAUTEUR_GRILLE }, () =>
-        Array(LARGEUR_GRILLE).fill(0)
-      )
-    );
-    setScore(0);
-    setFormX(X_INITIAL);
-    setFormY(Y_INITIAL);
-    setNumForme(Math.floor(Math.random() * formes.length));
-    setRotation(0);
-    setGameOver(false);
-    setDelay(250);
-    setFastDrop(false);
-  }, []);
+    if (mode === "solo") {
+      socket.emit("restartGame", { room });
+    } else {
+      window.location.href = "http://localhost:3000";
+    }
+  }, [mode, room]);
 
   // Vérifie les collisions
   const collision = useCallback(
@@ -431,21 +421,50 @@ function TetrisGame() {
     const lignesEffacees = effacerLignesCompletes(newGrille);
     setScore(score + pointsParLignes[lignesEffacees]);
     setGrille(newGrille);
-  }, [grille, formX, formY, rotation, numForme, score, effacerLignesCompletes]);
-
+  
+    if (mode === "multiplayer") {
+      // Mode multijoueur : utiliser la séquence du serveur
+      setPieceIndex((prevIndex) => {
+        const newIndex = prevIndex + 1;
+        setNumForme(pieceSequence[newIndex % pieceSequence.length]);
+        return newIndex;
+      });
+    } else if (mode === "solo") {
+      // Mode solo : générer une nouvelle pièce aléatoirement
+      setNumForme(Math.floor(Math.random() * formes.length));
+    }
+  }, [grille, formX, formY, rotation, numForme, score, effacerLignesCompletes, pieceSequence, mode]);
 
   useEffect(() => {
-    if (!mode || gameOver) return; // Ajout de la condition pour vérifier que le mode est sélectionné
+    if (gameOver && mode === "solo") {
+      socket.emit("gameOver", { room });
+    }
+  }, [gameOver, mode, room]);
+
+  useEffect(() => {
+    if (!mode || gameOver) return;
     const interval = setInterval(() => {
       if (collision(0, 1)) {
         fixerForme();
         setFormX(X_INITIAL);
         setFormY(Y_INITIAL);
         setRotation(0);
-        setNumForme(Math.floor(Math.random() * formes.length));
+  
+        // Définir la nouvelle forme en fonction du mode
+        if (mode === "multiplayer") {
+          // En multijoueur, `numForme` est déjà mis à jour dans `fixerForme`
+        } else if (mode === "solo") {
+          // En solo, générer une nouvelle pièce aléatoire
+          setNumForme(Math.floor(Math.random() * formes.length));
+        }
+  
         if (collision(0, 0)) {
-          setGameOver(true); // Game Over uniquement si collision initiale
-          socket.emit("gameOver", { room, playerId: socket.id });
+          setGameOver(true);
+          if (mode === "multiplayer") {
+            socket.emit("gameOver", { room, playerId: socket.id });
+          } else if (mode === "solo") {
+            socket.emit("gameOver", { room });
+          }
         }
       } else {
         setFormY((prev) => prev + 1);

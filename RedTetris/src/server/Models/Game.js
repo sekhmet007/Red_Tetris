@@ -1,9 +1,9 @@
 // src/server/models/Game.js
 import createPlayer from "./Player.js";
-import generatePiece from "./Piece.js";
 import generatePieceSequence from "./Piece.js";
 
-function createGame(roomName) {
+function createGame(roomName, io) {
+  const mode = "multiplayer";
   const players = {};
   const pieceSequence = [];
   let isStarted = false;
@@ -45,7 +45,7 @@ function createGame(roomName) {
     isStarted = true;
 
     for (let i = 0; i < 100; i++) {
-      pieceSequence.push(generatePiece());
+      pieceSequence.push(generatePieceSequence());
     }
 
     // Synchronise les joueurs
@@ -63,8 +63,8 @@ function createGame(roomName) {
       if (Object.keys(players).length > 1) {
         // Mode multijoueur : notifier les joueurs
         player.notifyEndGame();
+        player.reset();
       }
-      player.reset(); // Réinitialiser l'état du joueur (solo et multijoueur)
     });
   }
 
@@ -78,22 +78,8 @@ function createGame(roomName) {
 
   function getPlayerBySocketId(socketId) {
     return Object.values(players).find(
-      (player) => player.socketId === socketId
+      (player) => player.socket.id === socketId
     );
-  }
-
-  function startCountdown() {
-    if (Object.keys(players).length === 2) {
-      let countdown = 5;
-      const countdownInterval = setInterval(() => {
-        io.to(roomName).emit("countdown", countdown);
-        countdown -= 1;
-        if (countdown === 0) {
-          clearInterval(countdownInterval);
-          startGame();
-        }
-      }, 1000);
-    }
   }
 
   function handlePlayerGameOver(playerId) {
@@ -118,15 +104,9 @@ function createGame(roomName) {
     return null; // Pas encore terminé
   }
 
-  function checkWinner() {
-    if (Object.keys(players).length === 1) {
-      const winner = Object.keys(players)[0];
-      io.to(roomName).emit("gameOver");
-      resetGame();
-    }
-  }
 
   return {
+    mode,
     roomName,
     players,
     pieceSequence,
@@ -139,9 +119,7 @@ function createGame(roomName) {
     resetGame,
     handleLineCompletion,
     getPlayerBySocketId,
-    startCountdown,
     checkGameOver,
-    checkWinner,
     handlePlayerGameOver,
   };
 }
