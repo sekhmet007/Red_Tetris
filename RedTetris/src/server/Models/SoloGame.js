@@ -1,7 +1,7 @@
 // src/server/models/SoloGame.js
 
 import createPlayer from "./Player.js";
-import generatePiece from "./Piece.js";
+import { generatePiece } from "./Piece.js";
 
 function createSoloGame(roomName, playerName, socket, io) {
     const mode = "solo";
@@ -16,7 +16,7 @@ function createSoloGame(roomName, playerName, socket, io) {
         for (let i = 0; i < 100; i++) {
             pieceSequence.push(generatePiece());
         }
-        player.sendPieceSequence(pieceSequence);
+        player.sendPiece(pieceSequence);
         player.reset();
 
         io.to(roomName).emit("gameStarted", { pieces: pieceSequence });
@@ -28,6 +28,7 @@ function createSoloGame(roomName, playerName, socket, io) {
 
     function handleGameOver() {
         player.notifyEndGame();
+        io.to(roomName).emit("gameOver");
         isStarted = false;
     }
 
@@ -37,7 +38,6 @@ function createSoloGame(roomName, playerName, socket, io) {
         player.notifyEndGame();
         player.reset();
     }
-
     return {
         roomName,
         playerName,

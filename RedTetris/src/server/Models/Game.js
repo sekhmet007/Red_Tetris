@@ -1,6 +1,6 @@
 // src/server/models/Game.js
 import createPlayer from "./Player.js";
-import generatePieceSequence from "./Piece.js";
+import { generatePieceSequence } from "./Piece.js";
 
 function createGame(roomName, io) {
   const mode = "multiplayer";
