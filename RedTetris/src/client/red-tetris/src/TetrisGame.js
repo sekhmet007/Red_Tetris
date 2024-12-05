@@ -214,7 +214,7 @@ function TetrisGame() {
       });
 
       socket.on("gameOver", ({ winner }) => {
-        //alert(`Game Over! Winner: ${winner}`);
+        //(`Game Over! Winner: ${winner}`);
         setGameOver(true);
         setMode(null);
         window.location.href = "http://localhost:3000"; // Redirection
@@ -234,7 +234,7 @@ function TetrisGame() {
       });
 
       socket.on("gameOver", () => {
-        //alert("Game Over!");
+        console.log("Game Over!");
         setGameOver(true);
       });
     }

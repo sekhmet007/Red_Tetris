@@ -32,20 +32,19 @@ function createGame(roomName, io) {
   }
 
   function distributePieces() {
-    if (pieceSequence.length === 0) {
-      for (let i = 0; i < 100; i++) {
-        pieceSequence.push(...generatePieceSequence());
-      }
-    }
-    Object.values(players).forEach((player) => player.sendPiece(pieceSequence));
+    Object.values(players).forEach((player) =>
+      player.sendPieceSequence(pieceSequence)
+    );
   }
 
   function startGame() {
     if (isStarted) return; // Empêche de redémarrer une partie déjà en cours
     isStarted = true;
 
-    for (let i = 0; i < 100; i++) {
-      pieceSequence.push(generatePieceSequence());
+    if (pieceSequence.length === 0) {
+      for (let i = 0; i < 100; i++) {
+        pieceSequence.push(...generatePieceSequence());
+      }
     }
 
     // Synchronise les joueurs
@@ -97,13 +96,14 @@ function createGame(roomName, io) {
   }
 
   function checkGameOver() {
-    const activePlayers = Object.values(players).filter((player) => !player.isGameOver);
+    const activePlayers = Object.values(players).filter(
+      (player) => !player.isGameOver
+    );
     if (activePlayers.length === 1) {
       return activePlayers[0].id; // Retourne l'ID du gagnant
     }
     return null; // Pas encore terminé
   }
-
 
   return {
     mode,
