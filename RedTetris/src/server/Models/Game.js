@@ -37,7 +37,7 @@ function createGame(roomName, io) {
     );
   }
 
-  function startGame() {
+  function startGameMulti() {
     if (isStarted) return; // Empêche de redémarrer une partie déjà en cours
     isStarted = true;
 
@@ -52,6 +52,7 @@ function createGame(roomName, io) {
       player.sendPieceSequence(pieceSequence);
       player.reset();
     });
+    console.log("Séquence générée côté serveur :", pieceSequence);
     io.to(roomName).emit("gameStarted", { pieces: pieceSequence });
   }
 
@@ -115,7 +116,7 @@ function createGame(roomName, io) {
     addPlayer,
     removePlayer,
     distributePieces,
-    startGame,
+    startGameMulti,
     resetGame,
     handleLineCompletion,
     getPlayerBySocketId,
