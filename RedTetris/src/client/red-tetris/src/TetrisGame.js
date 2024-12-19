@@ -194,15 +194,16 @@ function TetrisGame() {
   }, [mode, room, playerName]);
 
   useEffect(() => {
+    if (!mode) return; // Ne rien faire si le mode n'est pas défini
+
     if (mode === "multiplayer") {
-      // Événements spécifiques au multijoueur
+      // Gestion des événements spécifiques au multijoueur
       socket.on("youAreLeader", () => {
         setIsLeader(true);
       });
 
       socket.on("readyToStart", () => {
         console.log("Événement readyToStart reçu : isLeader =", isLeader);
-        // Affiche le message uniquement si le joueur est le leader
         if (isLeader) {
           alert(
             "Tous les joueurs sont prêts. Vous êtes le leader, vous pouvez démarrer la partie !"
@@ -226,15 +227,34 @@ function TetrisGame() {
       });
 
       socket.on("gameOver", ({ winner }) => {
-        //(`Game Over! Winner: ${winner}`);
+        console.log("Game Over! Winner:", winner);
         setGameOver(true);
         setMode(null);
         window.location.href = "http://localhost:3000"; // Redirection
       });
-    } else if (mode === "solo") {
-      // Événements spécifiques au mode solo
+
+      // Événement `gameStarted` spécifique au multijoueur
       socket.on("gameStarted", ({ pieces }) => {
-        console.log("Game started with pieces:", pieces);
+        console.log("Multiplayer game started with pieces:", pieces);
+        if (!pieces || pieces.length === 0) {
+          console.error("Erreur : Séquence de pièces vide ou non reçue.");
+          return;
+        }
+        setPieceSequence(pieces);
+        setPieceIndex(0);
+        setNumForme(pieces[0]);
+        setScore(0);
+        setGameOver(false);
+        setGrille(
+          Array.from({ length: HAUTEUR_GRILLE }, () =>
+            Array(LARGEUR_GRILLE).fill(0)
+          )
+        );
+      });
+    } else if (mode === "solo") {
+      // Gestion des événements spécifiques au mode solo
+      socket.on("gameStarted", ({ pieces }) => {
+        console.log("Solo game started with pieces:", pieces);
         setNumForme(pieces[0]);
         setScore(0);
         setGameOver(false);
@@ -251,32 +271,15 @@ function TetrisGame() {
       });
     }
 
-    socket.on("gameStarted", ({ pieces }) => {
-      setScore(0);
-      setGameOver(false);
-      setGrille(
-        Array.from({ length: HAUTEUR_GRILLE }, () =>
-          Array(LARGEUR_GRILLE).fill(0)
-        )
-      );
-
-      if (mode === "multiplayer") {
-        setPieceSequence(pieces);
-        setPieceIndex(0);
-        setNumForme(pieces[0]);
-      } else if (mode === "solo") {
-        setNumForme(Math.floor(Math.random() * formes.length));
-      }
-    });
-
+    // Nettoyage des événements à la fin ou au changement de mode
     return () => {
       socket.off("youAreLeader");
       socket.off("readyToStart");
-      socket.off("gameStarted");
       socket.off("penaltyApplied");
       socket.off("gameOver");
+      socket.off("gameStarted");
     };
-  }, [mode, isLeader, pieceSequence]);
+  }, [mode, isLeader]);
 
   useEffect(() => {
     console.log("État actuel de isLeader :", isLeader);
@@ -452,12 +455,10 @@ function TetrisGame() {
     setScore(score + pointsParLignes[lignesEffacees]);
     setGrille(newGrille);
 
-    if (mode === "multiplayer") {
-      console.log("fixerForme - Vérification de pieceSequence :", pieceSequence);
-      if (!pieceSequence || pieceSequence.length === 0) {
-        console.error("Erreur : Séquence de pièces vide dans fixerForme.");
-        return;
-      }
+    if (mode === "multiplayer" && (!pieceSequence || pieceSequence.length === 0)) {
+      console.error("Erreur : Séquence de pièces vide, le jeu ne peut pas commencer.");
+      return;
+
 
       setPieceIndex((prevIndex) => {
         const newIndex = prevIndex + 1;

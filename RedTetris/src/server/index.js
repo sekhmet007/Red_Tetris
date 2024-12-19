@@ -138,53 +138,54 @@ io.on("connection", (socket) => {
         delete games[room];
         console.log(`Jeu solo ${room} supprimé suite à la déconnexion.`);
       });
-    } else {
-      // Gestion du mode multijoueur
+    }
+    if (mode === "multiplayer") {
       if (!games[room]) {
-        games[room] = createGame(room, io);
+        games[room] = createGame(room, io); // Crée la partie si elle n'existe pas
       }
+
       const game = games[room];
 
       if (game.isStarted) {
-        socket.emit("errorMessage", "La partie a déjà commencé.");
+        socket.emit(
+          "errorMessage",
+          "La partie a déjà commencé. Veuillez attendre la fin."
+        );
         return;
       }
 
-      const player = game.addPlayer(playerName, socket);
+      const player = game.addPlayer(playerName, socket); // Ajoute le joueur
       if (!player) {
         socket.emit("errorMessage", "Room pleine ou nom déjà pris.");
         return;
       }
 
-      // Assigner le leader UNIQUEMENT si aucun leader n'existe
+      // Assigner le leader si aucun leader n'est défini
       if (!game.leaderId) {
-        game.leaderId = socket.id; // Le premier joueur devient leader
-        console.log(`Leader désigné : ${playerName} (ID: ${socket.id})`);
-        socket.emit("youAreLeader"); // Notifie uniquement le leader
-      } else {
-        console.log(`${playerName} rejoint comme joueur régulier.`);
+        game.leaderId = player.id;
+        socket.emit("youAreLeader"); // Notifie le leader
       }
 
       socket.join(room);
-      // Notifier tous les joueurs de la liste mise à jour
-      io.to(room).emit("playerListUpdated", {
-        players: Object.values(game.players).map((p) => p.name),
-      });
       console.log(`${playerName} a rejoint la room ${room}`);
 
-      // Gestion de l'attente des joueurs
-      const numPlayers = Object.keys(game.players).length;
-      if (numPlayers === 1) {
-        socket.emit("waitingForPlayer", "En attente d'un autre joueur...");
-      } else if (numPlayers >= 2) {
+      if (Object.keys(game.players).length >= 2) {
+        console.log(`Room ${room} prête à démarrer, leader : ${game.leaderId}`);
         Object.values(game.players).forEach((player) => {
           if (player.id === game.leaderId) {
+            console.log(`Leader (${player.name}) reçoit "readyToStart".`);
             player.socket.emit("readyToStart", { isLeader: true });
           } else {
-            player.socket.emit("waitingForLeader");
+            console.log(`Joueur (${player.name}) reçoit "waitingForLeader".`);
+            player.socket.emit("readyToStart", { isLeader: false });
           }
         });
       }
+
+      // Notifie tous les joueurs de la liste mise à jour
+      io.to(room).emit("playerListUpdated", {
+        players: Object.values(game.players).map((p) => p.name),
+      });
     }
   });
 
