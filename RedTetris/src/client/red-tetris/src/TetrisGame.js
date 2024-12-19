@@ -455,10 +455,11 @@ function TetrisGame() {
     setScore(score + pointsParLignes[lignesEffacees]);
     setGrille(newGrille);
 
-    if (mode === "multiplayer" && (!pieceSequence || pieceSequence.length === 0)) {
-      console.error("Erreur : Séquence de pièces vide, le jeu ne peut pas commencer.");
-      return;
-
+    if (mode === "multiplayer") {
+      console.log(
+        "fixerForme - Vérification de pieceSequence :",
+        pieceSequence
+      );
 
       setPieceIndex((prevIndex) => {
         const newIndex = prevIndex + 1;
