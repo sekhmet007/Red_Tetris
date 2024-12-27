@@ -160,6 +160,7 @@ function TetrisGame() {
   const [rooms, setRooms] = useState([]);
   const [pieceSequence, setPieceSequence] = useState([]);
   const [pieceIndex, setPieceIndex] = useState(0);
+  const [isGameStarted, setIsGameStarted] = useState(false);
 
   // Récupérer room et playerName à partir de l'URL
   const params = new URLSearchParams(window.location.search);
@@ -194,64 +195,66 @@ function TetrisGame() {
   }, [mode, room, playerName]);
 
   useEffect(() => {
-    if (mode === "multiplayer") {
-      // Événements spécifiques au multijoueur
-      socket.on("youAreLeader", () => {
-        setIsLeader(true);
-      });
+    if (mode !== "multiplayer") return;
 
-      socket.on("readyToStart", () => {
-        console.log("Événement readyToStart reçu : isLeader =", isLeader);
-        // Affiche le message uniquement si le joueur est le leader
-        if (isLeader) {
-          alert(
-            "Tous les joueurs sont prêts. Vous êtes le leader, vous pouvez démarrer la partie !"
-          );
-        } else {
-          console.log(
-            "Vous n'êtes pas le leader. En attente du démarrage par le leader."
-          );
-        }
-      });
+    // Gestion des événements spécifiques au mode multijoueur
+    socket.on("youAreLeader", () => {
+      console.log("Vous êtes maintenant le leader !");
+      setIsLeader(true);
+    });
 
-      socket.on("penaltyApplied", ({ lines }) => {
-        setGrille((prevGrille) => {
-          const newGrille = [...prevGrille];
-          for (let i = 0; i < lines; i++) {
-            newGrille.shift();
-            newGrille.push(Array(LARGEUR_GRILLE).fill(1));
-          }
-          return newGrille;
-        });
-      });
-
-      socket.on("gameOver", ({ winner }) => {
-        //(`Game Over! Winner: ${winner}`);
-        setGameOver(true);
-        setMode(null);
-        window.location.href = "http://localhost:3000"; // Redirection
-      });
-    } else if (mode === "solo") {
-      // Événements spécifiques au mode solo
-      socket.on("gameStarted", ({ pieces }) => {
-        console.log("Game started with pieces:", pieces);
-        setNumForme(pieces[0]);
-        setScore(0);
-        setGameOver(false);
-        setGrille(
-          Array.from({ length: HAUTEUR_GRILLE }, () =>
-            Array(LARGEUR_GRILLE).fill(0)
-          )
+    socket.on("readyToStart", () => {
+      console.log(
+        "Événement readyToStart reçu : Vous pouvez démarrer la partie."
+      );
+      if (isLeader) {
+        alert(
+          "Tous les joueurs sont prêts. Vous êtes le leader, démarrez la partie !"
         );
-      });
+      }
+    });
 
-      socket.on("gameOver", () => {
-        console.log("Game Over!");
-        setGameOver(true);
+    socket.on("waitingForLeader", () => {
+      console.log("Réception de `waitingForLeader` côté client.");
+      if (isLeader) {
+        console.error("Problème : le leader reçoit aussi `waitingForLeader` !");
+      } else {
+        alert("En attente que le leader démarre la partie...");
+      }
+    });
+
+    socket.on("pieceSequence", (sequence) => {
+      if (!sequence || sequence.length === 0) {
+        console.error("Erreur : Séquence reçue vide ou invalide !");
+      } else {
+        console.log("Séquence reçue :", sequence);
+        setPieceSequence(sequence);
+      }
+    });
+
+    socket.on("penaltyApplied", ({ lines }) => {
+      setGrille((prevGrille) => {
+        const newGrille = [...prevGrille];
+        for (let i = 0; i < lines; i++) {
+          newGrille.shift();
+          newGrille.push(Array(LARGEUR_GRILLE).fill(1));
+        }
+        return newGrille;
       });
-    }
+    });
+
+    socket.on("gameOver", ({ winner }) => {
+      setGameOver(true);
+      setMode(null);
+      window.location.href = "http://localhost:3000"; // Redirection
+    });
 
     socket.on("gameStarted", ({ pieces }) => {
+      console.log("Séquence reçue côté client :", pieces);
+      if (!pieces || pieces.length === 0) {
+        console.error("Erreur : Séquence reçue vide !");
+        return;
+      }
       setScore(0);
       setGameOver(false);
       setGrille(
@@ -259,28 +262,79 @@ function TetrisGame() {
           Array(LARGEUR_GRILLE).fill(0)
         )
       );
-
-      if (mode === "multiplayer") {
-        setPieceSequence(pieces);
-        setPieceIndex(0);
-        setNumForme(pieces[0]);
-      } else if (mode === "solo") {
-        setNumForme(Math.floor(Math.random() * formes.length));
-      }
+      setPieceSequence(pieces);
+      setPieceIndex(0);
+      setNumForme(pieces[0]);
+      setIsGameStarted(true);
     });
 
     return () => {
       socket.off("youAreLeader");
       socket.off("readyToStart");
-      socket.off("gameStarted");
       socket.off("penaltyApplied");
       socket.off("gameOver");
+      socket.off("gameStarted");
     };
-  }, [mode, isLeader, pieceSequence]);
+  }, [mode, isLeader]);
+
+  useEffect(() => {
+    if (!isGameStarted) {
+      console.log("Le jeu n'a pas encore démarré.");
+    }
+  }, [isGameStarted]);
 
   useEffect(() => {
     console.log("État actuel de isLeader :", isLeader);
   }, [isLeader]);
+
+  useEffect(() => {
+    if (mode !== "solo") return;
+
+    // Gestion des événements spécifiques au mode solo
+    socket.on("gameStarted", ({ pieces }) => {
+      console.log("Game started with pieces:", pieces);
+      if (!pieces || pieces.length === 0) {
+        console.error("Erreur : Séquence de pièces vide !");
+        return;
+      }
+      setPieceSequence(pieces);
+      setPieceIndex(0);
+
+      // Affectez uniquement l'index (et non un objet complet)
+      const firstPieceIndex = pieces[0];
+      if (typeof firstPieceIndex !== "number") {
+        console.error("Erreur : Première pièce invalide :", firstPieceIndex);
+        return;
+      }
+
+      setNumForme(firstPieceIndex); // Assurez-vous que c'est un index
+      setIsGameStarted(true);
+    });
+
+    socket.on("gameOver", () => {
+      console.log("Game Over!");
+      setGameOver(true);
+    });
+
+    return () => {
+      socket.off("gameStarted");
+      socket.off("gameOver");
+    };
+  }, [mode]);
+
+  useEffect(() => {
+    console.log("Vérification de pieceSequence :", pieceSequence);
+    if (
+      !pieceSequence.every(
+        (index) => typeof index === "number" && formes[index]
+      )
+    ) {
+      console.error(
+        "Erreur : pieceSequence contient des indices invalides :",
+        pieceSequence
+      );
+    }
+  }, [pieceSequence]);
 
   const joinRoom = (roomName) => {
     if (!roomName || roomName === "null") {
@@ -432,6 +486,13 @@ function TetrisGame() {
   // Fixe la forme et supprime les lignes complètes
   const fixerForme = useCallback(() => {
     const newGrille = grille.map((row) => [...row]);
+
+    // Vérifiez ici si numForme est un index valide
+    if (typeof numForme !== "number" || !formes[numForme]) {
+      console.error("fixerForme - Forme invalide pour numForme :", numForme);
+      return; // Arrêtez l'exécution pour éviter un plantage
+    }
+
     formes[numForme][rotation].forEach((row, y) => {
       row.forEach((cell, x) => {
         if (cell === 1) {
@@ -448,22 +509,17 @@ function TetrisGame() {
         }
       });
     });
+
     const lignesEffacees = effacerLignesCompletes(newGrille);
     setScore(score + pointsParLignes[lignesEffacees]);
     setGrille(newGrille);
 
+    // Assurez-vous que `numForme` est correctement mis à jour
     if (mode === "multiplayer") {
-      console.log("fixerForme - Vérification de pieceSequence :", pieceSequence);
-      if (!pieceSequence || pieceSequence.length === 0) {
-        console.error("Erreur : Séquence de pièces vide dans fixerForme.");
-        return;
-      }
-
       setPieceIndex((prevIndex) => {
         const newIndex = prevIndex + 1;
-        const nextPiece = pieceSequence[newIndex % pieceSequence.length];
-        console.log("Nouvelle pièce assignée (multijoueur) :", nextPiece);
-        setNumForme(nextPiece);
+        const nextPieceIndex = pieceSequence[newIndex % pieceSequence.length];
+        setNumForme(nextPieceIndex); // Assurez-vous d'affecter un index numérique
         return newIndex;
       });
     } else if (mode === "solo") {
@@ -560,7 +616,15 @@ function TetrisGame() {
 
   // Fonction pour obtenir la grille d'affichage avec la pièce en mouvement
   const getDisplayGrid = () => {
-    const displayGrid = grille.map((row) => [...row]); // Copie de la grille existante
+    if (typeof numForme !== "number" || !formes[numForme]) {
+      console.error(
+        "getDisplayGrid - Forme invalide pour numForme :",
+        numForme
+      );
+      return grille; // Retourne la grille actuelle pour éviter un plantage
+    }
+
+    const displayGrid = grille.map((row) => [...row]);
     formes[numForme][rotation].forEach((row, y) => {
       row.forEach((cell, x) => {
         if (cell === 1) {
@@ -572,14 +636,14 @@ function TetrisGame() {
             newX >= 0 &&
             newX < LARGEUR_GRILLE
           ) {
-            displayGrid[newY][newX] = 1; // Ajouter temporairement la pièce en mouvement
+            displayGrid[newY][newX] = 1;
           }
         }
       });
     });
+
     return displayGrid;
   };
-
   const handleModeSelection = (selectedMode) => {
     console.log("Mode sélectionné :", selectedMode);
     if (selectedMode === "solo") {

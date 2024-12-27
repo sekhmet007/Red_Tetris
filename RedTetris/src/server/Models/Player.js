@@ -1,6 +1,7 @@
 // src/server/models/Player.js
 
 import { v4 as uuidv4 } from "uuid";
+
 function createPlayer(name, socket) {
   const id = uuidv4();
   let score = 0;
@@ -10,6 +11,13 @@ function createPlayer(name, socket) {
   function sendPiece(piece) {
     socket.emit("newPiece", piece);
   }
+
+  function sendPieceSequence(sequence) {
+    if (!sequence || sequence.length === 0) {
+        console.error("Erreur : Séquence de pièces vide ou invalide !");
+    }
+    socket.emit("pieceSequence", sequence);
+}
 
   function updateScore(lines) {
     const pointsParLignes = [0, 40, 100, 300, 1200];
@@ -55,6 +63,7 @@ function createPlayer(name, socket) {
     updateSpectre,
     reset,
     notifyEndGame,
+    sendPieceSequence,
   };
 }
 

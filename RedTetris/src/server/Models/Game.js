@@ -2,6 +2,7 @@
 import createPlayer from "./Player.js";
 import { generatePieceSequence } from "./Piece.js";
 
+
 function createGame(roomName, io) {
   const mode = "multiplayer";
   const players = {};
@@ -42,11 +43,13 @@ function createGame(roomName, io) {
     isStarted = true;
 
     if (pieceSequence.length === 0) {
-      for (let i = 0; i < 100; i++) {
-        pieceSequence.push(...generatePieceSequence());
-      }
+      pieceSequence.push(...generatePieceSequence());
     }
-
+    console.log("Séquence générée pour la room :", roomName, pieceSequence);
+    if (pieceSequence.length === 0) {
+      console.error("Erreur : séquence de pièces vide après génération !");
+      return;
+    }
     // Synchronise les joueurs
     Object.values(players).forEach((player) => {
       player.sendPieceSequence(pieceSequence);
@@ -122,6 +125,7 @@ function createGame(roomName, io) {
     getPlayerBySocketId,
     checkGameOver,
     handlePlayerGameOver,
+    pieceSequence:generatePieceSequence(),
   };
 }
 
