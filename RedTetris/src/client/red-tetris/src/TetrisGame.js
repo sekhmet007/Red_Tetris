@@ -297,16 +297,29 @@ function TetrisGame() {
         console.error("Erreur : Séquence de pièces vide !");
         return;
       }
-      setPieceSequence(pieces);
+    
+      // Transformation des pièces reçues
+      const mappedPieces = pieces.map((p) => {
+        const index = formes.findIndex(
+          (f) => JSON.stringify(f) === JSON.stringify(p.rotationStates)
+        );
+        return index;
+      });
+      
+      if (mappedPieces.includes(-1)) {
+        console.error("Erreur : Certaines pièces ne correspondent pas aux formes !");
+        return;
+      }
+    
+      setPieceSequence(mappedPieces);
       setPieceIndex(0);
-
-      // Affectez uniquement l'index (et non un objet complet)
-      const firstPieceIndex = pieces[0];
-      if (typeof firstPieceIndex !== "number") {
+    
+      const firstPieceIndex = mappedPieces[0];
+      if (typeof firstPieceIndex !== "number" || firstPieceIndex < 0 || firstPieceIndex >= formes.length) {
         console.error("Erreur : Première pièce invalide :", firstPieceIndex);
         return;
       }
-
+    
       setNumForme(firstPieceIndex); // Assurez-vous que c'est un index
       setIsGameStarted(true);
     });
@@ -522,8 +535,17 @@ function TetrisGame() {
         setNumForme(nextPieceIndex); // Assurez-vous d'affecter un index numérique
         return newIndex;
       });
-    } else if (mode === "solo") {
-      setNumForme(Math.floor(Math.random() * formes.length));
+    } if (mode === "solo") {
+      setPieceIndex((prevIndex) => {
+        const newIndex = prevIndex + 1;
+        if (newIndex >= pieceSequence.length) {
+          console.log("Fin de la séquence atteinte. Redémarrage requis.");
+          setGameOver(true);
+          return prevIndex;
+        }
+        setNumForme(pieceSequence[newIndex]);
+        return newIndex;
+      });
     }
   }, [
     grille,
