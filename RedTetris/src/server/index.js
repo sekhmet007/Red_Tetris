@@ -146,6 +146,9 @@ function handleMultiplayerMode(room, playerName, socket) {
     socket.emit("errorMessage", "La partie a déjà commencé.");
     return;
   }
+  console.log(`Room actuelle : ${room}`);
+  console.log(`Joueurs dans la room avant ajout :`, Object.keys(game.players));
+  console.log(`Leader actuel : ${game.leaderId}`);
 
   const player = game.addPlayer(playerName, socket);
   if (!player) {
@@ -155,31 +158,31 @@ function handleMultiplayerMode(room, playerName, socket) {
 
   if (!game.leaderId) {
     game.leaderId = socket.id;
-    console.log(`Leader désigné : ${playerName} (ID: ${socket.id})`);
     socket.emit("youAreLeader");
-  } else {
-    console.log(`${playerName} rejoint comme joueur régulier.`);
+    console.log(`Leader assigné - ${playerName} (${socket.id})`);
   }
-
-  socket.join(room);
   io.to(room).emit("playerListUpdated", {
-    players: Object.values(game.players).map((p) => p.name),
+    players: Object.values(game.players).map((p) => ({
+      name: p.name,
+      isLeader: p.socket.id === game.leaderId
+    }))
   });
 
   const numPlayers = Object.keys(game.players).length;
   if (numPlayers === 1) {
     socket.emit("waitingForPlayer", "En attente d'un autre joueur...");
   } else if (numPlayers >= 2) {
-    Object.values(game.players).forEach((player) => {
-      if (player.id === game.leaderId) {
-        console.log(`Leader identifié : ${player.name}`);
-        player.socket.emit("readyToStart", { isLeader: true });
+    Object.values(game.players).forEach((p) => {
+      if (p.socket.id === game.leaderId) {
+        p.socket.emit("readyToStart", { isLeader: true });
       } else {
-        console.log(`En attente du leader : ${player.name}`);
-        player.socket.emit("waitingForLeader");
+        p.socket.emit("waitingForLeader");
       }
     });
   }
+  // Log après toutes les émissions
+  console.log(`État final - Room: ${room}, Leader: ${game.leaderId}`);
+
 
   socket.on("disconnect", () => {
     handlePlayerDisconnect(room, socket.id);
@@ -202,7 +205,7 @@ function handlePlayerDisconnect(room, socketId) {
           const remainingPlayers = Object.keys(game.players);
           if (remainingPlayers.length > 0) {
             game.leaderId = remainingPlayers[0];
-            io.to(game.leaderId).emit("youAreLeader");
+            io.to(game.players[game.leaderId].socket.id).emit("youAreLeader");
           } else {
             game.leaderId = null;
           }
@@ -226,106 +229,103 @@ io.on("connection", (socket) => {
     }
   });
 
-// Gestion de l'événement playerReady (pour le multijoueur)
-socket.on("playerReady", ({ room }) => {
-  const game = games[room];
-  if (game && game.mode === "multiplayer") {
-    const player = game.getPlayerBySocketId(socket.id);
-    if (player) {
-      player.isReady = true;
-      const allReady = Object.values(game.players).every((p) => p.isReady);
-      if (allReady) {
-        io.to(room).emit("readyToStart");
-      }
-    }
-  }
-});
-
-// Gestion de l'événement startGame
-socket.on("startGame", ({ room }) => {
-  const game = games[room];
-  if (game) {
-    if (game.mode === "solo") {
-      // Le jeu solo démarre automatiquement
-      return;
-    }
-
-    if (!game || Object.keys(game.players).length < 2) {
-      socket.emit(
-        "errorMessage",
-        "Vous devez avoir au moins deux joueurs pour démarrer la partie !"
-      );
-      return;
-    }
-
-    if (game.leaderId === socket.id) {
-      game.startGameMulti();
-      io.to(room).emit("gameStarted", { pieces: game.pieceSequence });
-    } else {
-      socket.emit("errorMessage", "Seul le leader peut démarrer la partie.");
-    }
-  }
-});
-
-// Gestion de l'événement lineComplete
-socket.on("lineComplete", ({ room, lines }) => {
-  const game = games[room];
-  if (!game) return;
-
-  if (game.mode === "solo") {
-    game.handleLineCompletion(lines);
-  } else if (game.mode === "multiplayer") {
-    game.handleLineCompletion(socket.id, lines);
-  }
-});
-
-// Gestion de l'événement gameOver
-socket.on("gameOver", ({ room }) => {
-  const game = games[room];
-  if (game) {
-    if (game.mode === "solo") {
-      game.handleGameOver();
-    } else {
-      game.handlePlayerGameOver(socket.id);
-      const winnerId = game.checkGameOver();
-      if (winnerId) {
-        io.to(room).emit("gameOver", { winner: game.players[winnerId].name });
-        game.resetGame();
-      }
-    }
-  }
-});
-
-// Gestion de la déconnexion
-socket.on("disconnect", () => {
-  console.log("A user disconnected:", socket.id);
-  for (const room in games) {
+  // Gestion de l'événement playerReady (pour le multijoueur)
+  socket.on("playerReady", ({ room }) => {
     const game = games[room];
-    if (game.mode === "solo" && game.player?.socket.id === socket.id) {
-      delete games[room];
-      console.log(`Jeu solo ${room} supprimé suite à la déconnexion.`);
-    } else if (game.mode === "multiplayer") {
+    if (game && game.mode === "multiplayer") {
       const player = game.getPlayerBySocketId(socket.id);
       if (player) {
-        game.removePlayer(player.id);
-        if (game.isGameOver()) {
-          io.to(room).emit("gameOver", { winner: game.getWinner() });
-          delete games[room];
-        } else {
-          if (game.leaderId === socket.id) {
-            const remainingPlayers = Object.keys(game.players);
-            game.leaderId = remainingPlayers[0] || null;
-            if (game.leaderId) {
-              io.to(game.leaderId).emit("youAreLeader");
-            }
-          }
-          io.to(room).emit("playerDisconnected", { playerId: player.id });
+        player.isReady = true;
+        const allReady = Object.values(game.players).every((p) => p.isReady);
+        if (allReady) {
+          io.to(room).emit("readyToStart");
         }
       }
     }
-  }
-});
+  });
 
+  // Gestion de l'événement startGame
+  socket.on("startGame", ({ room }) => {
+    const game = games[room];
+    if (game) {
+      if (game.mode === "solo") {
+        // Le jeu solo démarre automatiquement
+        return;
+      }
+
+      if (game && game.mode === "multiplayer") {
+        if (socket.id !== game.leaderId) {
+            socket.emit("errorMessage", "Seul le leader peut démarrer la partie.");
+            return;
+        }
+
+        if (Object.keys(game.players).length < 2) {
+            socket.emit("errorMessage", "Il faut au moins deux joueurs pour démarrer !");
+            return;
+        }
+        game.startGameMulti();
+      }
+    }
+  });
+
+  // Gestion de l'événement lineComplete
+  socket.on("lineComplete", ({ room, lines }) => {
+    const game = games[room];
+    if (!game) return;
+
+    if (game.mode === "solo") {
+      game.handleLineCompletion(lines);
+    } else if (game.mode === "multiplayer") {
+      game.handleLineCompletion(socket.id, lines);
+    }
+  });
+
+  // Gestion de l'événement gameOver
+  socket.on("gameOver", ({ room }) => {
+    const game = games[room];
+    if (game) {
+      if (game.mode === "solo") {
+        game.handleGameOver();
+      } else {
+        game.handlePlayerGameOver(socket.id);
+        const winnerId = game.checkGameOver();
+        if (winnerId) {
+          io.to(room).emit("gameOver", { winner: game.players[winnerId].name });
+          game.resetGame();
+        }
+      }
+    }
+  });
+
+  // Gestion de la déconnexion
+  socket.on("disconnect", () => {
+    console.log("A user disconnected:", socket.id);
+    for (const room in games) {
+      const game = games[room];
+      if (game.mode === "solo" && game.player?.socket.id === socket.id) {
+        delete games[room];
+        console.log(`Jeu solo ${room} supprimé suite à la déconnexion.`);
+      } else if (game.mode === "multiplayer") {
+        const player = game.getPlayerBySocketId(socket.id);
+        if (player) {
+          game.removePlayer(player.id);
+          if (game.isGameOver()) {
+            io.to(room).emit("gameOver", { winner: game.getWinner() });
+            delete games[room];
+          } else {
+            if (game.leaderId === socket.id) {
+              const remainingPlayers = Object.keys(game.players);
+              game.leaderId = remainingPlayers[0] || null;
+              if (game.leaderId) {
+                io.to(game.leaderId).emit("youAreLeader");
+              }
+            }
+            io.to(room).emit("playerDisconnected", { playerId: player.id });
+          }
+        }
+      }
+    }
+  });
 });
 
 server.listen(port, () => {

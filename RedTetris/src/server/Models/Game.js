@@ -2,7 +2,6 @@
 import createPlayer from "./Player.js";
 import { generatePieceSequence } from "./Piece.js";
 
-
 function createGame(roomName, io) {
   const mode = "multiplayer";
   const players = {};
@@ -11,11 +10,13 @@ function createGame(roomName, io) {
   let leaderId = null;
 
   function addPlayer(name, socket) {
-    if (Object.values(players).some((p) => p.name === name)) return null; // Empêche les doublons de nom
+    // Vérifie si un joueur avec le même nom existe déjà
+    if (Object.values(players).some((p) => p.name === name)) {
+      console.error(`Le joueur avec le nom "${name}" existe déjà.`);
+      return null;
+    }
     const player = createPlayer(name, socket);
     players[player.id] = player;
-
-    if (!leaderId) leaderId = player.id; // Le premier joueur devient leader par défaut
     return player;
   }
 
@@ -42,14 +43,14 @@ function createGame(roomName, io) {
     if (isStarted) return; // Empêche de redémarrer une partie déjà en cours
     isStarted = true;
 
+    if (socket.id !== leaderId) {
+      socket.emit("errorMessage", "Seul le leader peut démarrer la partie !");
+      return;
+    }
     if (pieceSequence.length === 0) {
       pieceSequence.push(...generatePieceSequence());
     }
     console.log("Séquence générée pour la room :", roomName, pieceSequence);
-    if (pieceSequence.length === 0) {
-      console.error("Erreur : séquence de pièces vide après génération !");
-      return;
-    }
     // Synchronise les joueurs
     Object.values(players).forEach((player) => {
       player.sendPieceSequence(pieceSequence);
@@ -125,7 +126,7 @@ function createGame(roomName, io) {
     getPlayerBySocketId,
     checkGameOver,
     handlePlayerGameOver,
-    pieceSequence:generatePieceSequence(),
+    pieceSequence: generatePieceSequence(),
   };
 }
 
