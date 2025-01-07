@@ -40,25 +40,23 @@ function createGame(roomName, io) {
   }
 
   function startGameMulti() {
-    if (isStarted) return; // Empêche de redémarrer une partie déjà en cours
+    if (isStarted) return;
     isStarted = true;
 
-    if (socket.id !== leaderId) {
-      socket.emit("errorMessage", "Seul le leader peut démarrer la partie !");
-      return;
-    }
     if (pieceSequence.length === 0) {
-      pieceSequence.push(...generatePieceSequence());
+        pieceSequence.push(...generatePieceSequence());
     }
+
     console.log("Séquence générée pour la room :", roomName, pieceSequence);
+
     // Synchronise les joueurs
     Object.values(players).forEach((player) => {
-      player.sendPieceSequence(pieceSequence);
-      player.reset();
+        player.sendPieceSequence(pieceSequence);
+        player.reset();
     });
-    console.log("Séquence générée côté serveur :", pieceSequence);
+
     io.to(roomName).emit("gameStarted", { pieces: pieceSequence });
-  }
+}
 
   function resetGame() {
     isStarted = false;

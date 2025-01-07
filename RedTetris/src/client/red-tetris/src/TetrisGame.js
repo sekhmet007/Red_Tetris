@@ -243,29 +243,43 @@ function TetrisGame() {
       });
     });
 
+    socket.on("gameStarted", ({ pieces }) => {
+      console.log("Game started with pieces (multi):", pieces);
+
+      if (!pieces || pieces.length === 0) {
+        console.error("Erreur : Séquence de pièces vide ou invalide !");
+        setPieceSequence([]);
+        setPieceIndex(0);
+        setNumForme(null); // Définit une valeur par défaut explicite
+        return;
+      }
+
+      // Transformation des pièces reçues en indices
+      const mappedPieces = pieces.map((p) => {
+        const index = formes.findIndex(
+          (f) => JSON.stringify(f.rotationStates) === JSON.stringify(p.rotationStates)
+        );
+        return index;
+      });
+
+      if (mappedPieces.includes(-1)) {
+        console.error("Erreur : Certaines pièces ne correspondent pas aux formes !");
+        setPieceSequence([]);
+        setPieceIndex(0);
+        setNumForme(null); // Définit une valeur par défaut explicite
+        return;
+      }
+
+      setPieceSequence(mappedPieces); // Stocke la séquence transformée
+      setPieceIndex(0); // Initialise l'index
+      setNumForme(mappedPieces[0]); // Définit la première pièce
+      setIsGameStarted(true); // Démarre le jeu
+    });
+
     socket.on("gameOver", ({ winner }) => {
       setGameOver(true);
       setMode(null);
       window.location.href = "http://localhost:3000"; // Redirection
-    });
-
-    socket.on("gameStarted", ({ pieces }) => {
-      console.log("Séquence reçue côté client :", pieces);
-      if (!pieces || pieces.length === 0) {
-        console.error("Erreur : Séquence reçue vide !");
-        return;
-      }
-      setScore(0);
-      setGameOver(false);
-      setGrille(
-        Array.from({ length: HAUTEUR_GRILLE }, () =>
-          Array(LARGEUR_GRILLE).fill(0)
-        )
-      );
-      setPieceSequence(pieces);
-      setPieceIndex(0);
-      setNumForme(pieces[0]);
-      setIsGameStarted(true);
     });
 
     return () => {
@@ -275,7 +289,26 @@ function TetrisGame() {
       socket.off("gameOver");
       socket.off("gameStarted");
     };
-  }, [mode, isLeader]);
+  }, [mode, isLeader, room, playerName, pieceSequence]);
+
+  useEffect(() => {
+    console.log("Vérification de pieceSequence :", pieceSequence);
+    if (
+      pieceSequence &&
+      pieceSequence.length > 0
+    ) {
+      const firstPieceIndex = pieceSequence[0];
+      if (
+        typeof firstPieceIndex === "number" &&
+        firstPieceIndex >= 0 &&
+        firstPieceIndex < formes.length
+      ) {
+        setNumForme(firstPieceIndex);
+      } else {
+        console.error("Séquence de pièces invalide reçue :", pieceSequence);
+      }
+    }
+  }, [pieceSequence]);
 
   useEffect(() => {
     if (!isGameStarted) {
@@ -297,7 +330,7 @@ function TetrisGame() {
         console.error("Erreur : Séquence de pièces vide !");
         return;
       }
-    
+
       // Transformation des pièces reçues
       const mappedPieces = pieces.map((p) => {
         const index = formes.findIndex(
@@ -305,21 +338,21 @@ function TetrisGame() {
         );
         return index;
       });
-      
+
       if (mappedPieces.includes(-1)) {
         console.error("Erreur : Certaines pièces ne correspondent pas aux formes !");
         return;
       }
-    
+
       setPieceSequence(mappedPieces);
       setPieceIndex(0);
-    
+
       const firstPieceIndex = mappedPieces[0];
       if (typeof firstPieceIndex !== "number" || firstPieceIndex < 0 || firstPieceIndex >= formes.length) {
         console.error("Erreur : Première pièce invalide :", firstPieceIndex);
         return;
       }
-    
+
       setNumForme(firstPieceIndex); // Assurez-vous que c'est un index
       setIsGameStarted(true);
     });

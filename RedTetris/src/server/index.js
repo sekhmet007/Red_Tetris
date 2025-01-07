@@ -144,6 +144,7 @@ function handleMultiplayerMode(room, playerName, socket) {
 
   if (game.isStarted) {
     socket.emit("errorMessage", "La partie a déjà commencé.");
+    socket.emit("gameStarted", { pieces: game.pieceSequence });
     return;
   }
   console.log(`Room actuelle : ${room}`);
@@ -253,7 +254,7 @@ io.on("connection", (socket) => {
         return;
       }
 
-      if (game && game.mode === "multiplayer") {
+      if (game.mode === "multiplayer") {
         if (socket.id !== game.leaderId) {
             socket.emit("errorMessage", "Seul le leader peut démarrer la partie.");
             return;
@@ -263,9 +264,16 @@ io.on("connection", (socket) => {
             socket.emit("errorMessage", "Il faut au moins deux joueurs pour démarrer !");
             return;
         }
-        game.startGameMulti();
-      }
+
+        console.log(`Démarrage du jeu multijoueur pour la room : ${room}`);
+        const pieceSequence = pieceSequence(); // Génère une séquence unique pour tous les joueurs
+        game.pieceSequence = pieceSequence;
+
+        // Envoie la séquence à tous les joueurs de la room
+        io.to(room).emit("gameStarted", { pieces: pieceSequence });
+        console.log("Séquence de pièces générée pour la room :", pieceSequence);
     }
+  }
   });
 
   // Gestion de l'événement lineComplete
