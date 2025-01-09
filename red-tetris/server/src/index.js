@@ -222,18 +222,45 @@ io.on('connection', (socket) => {
     }
 
     socket.on('joinRoom', ({ room, playerName, mode }) => {
-        if (!isValidRoom(room) || !isValidPlayerName(playerName)) {
-            socket.emit('errorMessage', 'Données invalides.');
-            return;
+        try {
+            // Validation du nom de salle
+            if (!isValidRoom(room)) {
+                socket.emit('errorMessage', 'Nom de salle invalide.');
+                return;
+            }
+    
+            // Validation du nom de joueur
+            if (!isValidPlayerName(playerName)) {
+                socket.emit('errorMessage', 'Nom de joueur invalide.');
+                return;
+            }
+    
+            if (mode === 'solo') {
+                // Gérer le mode solo
+                console.log(`Joueur ${playerName} rejoint le mode solo dans la salle ${room}.`);
+                handleSoloMode(room, playerName, socket);
+            } else if (mode === 'multiplayer') {
+                handleMultiplayerMode(room, playerName, socket);
+                console.log(`Joueur ${playerName} rejoint le mode multijoueur dans la salle ${room}.`);
+                
+                const player = handleMultiplayerMode(room, playerName, socket); // Créer et associer le joueur
+                if (!player) {
+                    socket.emit('errorMessage', 'Erreur lors de la création du joueur multijoueur.');
+                    return;
+                }
+    
+                // Associer le joueur à la salle
+                player.setRoomName(room);
+                socket.join(room);
+                console.log(`${playerName} a rejoint la salle ${room}.`);
+            } else {
+                socket.emit('errorMessage', 'Mode non supporté.');
+            }
+        } catch (error) {
+            console.error('Erreur dans joinRoom:', error.message);
+            socket.emit('errorMessage', 'Une erreur est survenue. Veuillez réessayer.');
         }
-        if (mode === 'solo') {
-            handleSoloMode(room, playerName, socket);
-        } else if (mode === 'multiplayer') {
-            handleMultiplayerMode(room, playerName, socket);
-        } else {
-            socket.emit('errorMessage', 'Mode non supporté.');
-        }
-    });
+    }); 
 
     socket.on('leaveRoom', ({ room, playerName }) => {
         const game = games[room];
@@ -288,25 +315,37 @@ io.on('connection', (socket) => {
     });
 
     socket.on('startGame', ({ room }) => {
+        console.log('Réception de la demande startGame:', { room });
         const game = games[room];
-        if (game && game.mode === 'solo') {
-            if (game.isStarted) {
-                socket.emit('errorMessage', 'La partie solo a déjà commencé.');
-                return;
-            }
-    
-            game.isStarted = true;
-            const pieceSequence = generatePieceSequence();
-            game.pieceSequence = pieceSequence;
-    
-            // Envoyer les pièces initiales au joueur
-            socket.emit('gameStarted', {
-                pieces: pieceSequence,
-                initialGrid: Array.from({ length: 20 }, () => Array(10).fill(0)),
-            });
-    
-            console.log(`La partie solo pour ${room} a démarré avec les pièces :`, pieceSequence);
+        
+        if (!game) {
+            console.error('Jeu non trouvé pour la room:', room);
+            return;
         }
+        
+        if (game.mode !== 'solo') {
+            console.error('Mode de jeu incorrect:', game.mode);
+            return;
+        }
+    
+        if (game.isStarted) {
+            console.log('La partie solo est déjà démarrée');
+            socket.emit('errorMessage', 'La partie solo a déjà commencé.');
+            return;
+        }
+    
+        console.log('Démarrage de la partie solo...');
+        game.isStarted = true;
+        const pieceSequence = generatePieceSequence();
+        game.pieceSequence = pieceSequence;
+    
+        console.log('Envoi des pièces initiales...');
+        socket.emit('gameStarted', {
+            pieces: pieceSequence,
+            initialGrid: Array.from({ length: 20 }, () => Array(10).fill(0)),
+        });
+    
+        console.log('Partie solo démarrée avec succès');
     });
 
     socket.on('startGameMulti', ({ room }, callback) => {

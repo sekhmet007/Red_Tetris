@@ -27,10 +27,11 @@ function createGame(roomName, io) {
             console.error(`Le joueur avec le nom "${name}" existe déjà.`);
             return null;
         }
-        const player = createPlayer(name, socket);
+        const player = createPlayer(name, socket, roomName); // Passer roomName ici
         players[player.id] = player;
         return player;
     }
+    
 
     function removePlayer(playerId) {
         delete players[playerId];
@@ -113,10 +114,6 @@ function createGame(roomName, io) {
             if (player.id !== playerId) {
                 player.receivePenaltyLines(lines - 1);
             }
-        });
-        // Ajouter le broadcast des spectres après chaque modification
-        Object.values(players).forEach(player => {
-            player.updateSpectre();
         });
     }
 
