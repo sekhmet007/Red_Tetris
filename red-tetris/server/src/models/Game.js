@@ -114,6 +114,10 @@ function createGame(roomName, io) {
                 player.receivePenaltyLines(lines - 1);
             }
         });
+        // Ajouter le broadcast des spectres après chaque modification
+        Object.values(players).forEach(player => {
+            player.updateSpectre();
+        });
     }
 
     function getPlayerBySocketId(socketId) {

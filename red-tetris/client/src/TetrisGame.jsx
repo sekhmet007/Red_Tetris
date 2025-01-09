@@ -164,6 +164,9 @@ function TetrisGame() {
     const [pieceIndex, setPieceIndex] = useState(0);
     const [isGameStarted, setIsGameStarted] = useState(false);
     const [isReady, setIsReady] = useState(false);
+    const [opponents, setOpponents] = useState({});
+    const [isPaused, setIsPaused] = useState(false);
+
 
     const params = new URLSearchParams(window.location.search);
     const [room, setRoom] = useState(() => params.get('room'));
@@ -398,12 +401,12 @@ function TetrisGame() {
 
     const fixerForme = useCallback(() => {
         const newGrille = grille.map((row) => [...row]);
-
+    
         if (typeof numForme !== 'number' || !formes[numForme]) {
             console.error('fixerForme - Forme invalide pour numForme :', numForme);
             return;
         }
-
+    
         formes[numForme][rotation].forEach((row, y) => {
             row.forEach((cell, x) => {
                 if (cell === 1) {
@@ -420,12 +423,30 @@ function TetrisGame() {
                 }
             });
         });
-
+    
         const lignesEffacees = effacerLignesCompletes(newGrille);
         setScore(score + pointsParLignes[lignesEffacees]);
         setGrille(newGrille);
-
+    
+        // Mise à jour du spectre pour le mode multijoueur
         if (mode === 'multiplayer') {
+            // Calculer le spectre
+            const newSpectre = Array(LARGEUR_GRILLE).fill(0).map((_, x) => {
+                for (let y = 0; y < HAUTEUR_GRILLE; y++) {
+                    if (newGrille[y][x] === 1) {
+                        return y;
+                    }
+                }
+                return HAUTEUR_GRILLE;
+            });
+    
+            // Émettre la mise à jour du spectre
+            socket.emit('updateSpectre', {
+                room,
+                playerName,
+                spectre: newSpectre
+            });
+    
             setPieceIndex((prevIndex) => {
                 const newIndex = prevIndex + 1;
                 const nextPieceIndex = pieceSequence[newIndex % pieceSequence.length];
@@ -433,6 +454,7 @@ function TetrisGame() {
                 return newIndex;
             });
         }
+    
         if (mode === 'solo') {
             setPieceIndex((prevIndex) => {
                 const newIndex = prevIndex + 1;
@@ -454,6 +476,9 @@ function TetrisGame() {
         effacerLignesCompletes,
         pieceSequence,
         mode,
+        socket,
+        room,
+        playerName
     ]);
 
     const getDisplayGrid = useCallback(() => {
@@ -746,25 +771,43 @@ function TetrisGame() {
         };
     }, [collision, rotation, numForme, gameOver]);
 
+    useEffect(() => {
+        if (!socket || !isGameStarted || mode !== 'multiplayer') return;
+    
+        const handleSpectreUpdate = ({ playerId, playerName, spectre }) => {
+            console.log('Spectre reçu:', { playerId, playerName, spectre }); // Pour debug
+            setOpponents(prev => ({
+                ...prev,
+                [playerId]: {
+                    name: playerName,
+                    spectre: spectre
+                }
+            }));
+        };
+    
+        socket.on('spectreUpdate', handleSpectreUpdate);
+        
+        // Demander une mise à jour initiale des spectres
+        socket.emit('requestSpectres', { room });
+    
+        return () => {
+            socket.off('spectreUpdate', handleSpectreUpdate);
+        };
+    }, [socket, isGameStarted, mode, room]);
+
     return (
         <div className="tetris-game">
             {/* Affichage du score uniquement si le jeu est démarré */}
-            {isGameStarted && (
-                <div className="score">Score: {score}</div>
-            )}
-
+            {isGameStarted && <div className="score">Score: {score}</div>}
+    
             {/* Sélection du mode */}
             {!mode && (
                 <div className="mode-selector">
-                    <button onClick={() => handleModeSelection('solo')}>
-                        Mode Solo
-                    </button>
-                    <button onClick={() => handleModeSelection('multiplayer')}>
-                        Mode Multijoueur
-                    </button>
+                    <button onClick={() => handleModeSelection('solo')}>Mode Solo</button>
+                    <button onClick={() => handleModeSelection('multiplayer')}>Mode Multijoueur</button>
                 </div>
             )}
-
+    
             {/* Liste des rooms pour le mode multijoueur */}
             {mode === 'multiplayer' && !isGameStarted && (
                 <div className="room-list">
@@ -776,21 +819,14 @@ function TetrisGame() {
                                     <strong>{room.roomName}</strong> - Joueurs : {room.players} -{' '}
                                     {room.isStarted ? 'En cours' : 'En attente'}
                                 </p>
-                                <div className="room-buttons">
-                                    {!room.isStarted && (
-                                        <>
-                                            <button onClick={() => joinRoom(room.roomName)}>
-                                                Rejoindre
-                                            </button>
-                                            <button
-                                                className="leave-room-button"
-                                                onClick={() => leaveRoom(room.roomName)}
-                                            >
-                                                Quitter
-                                            </button>
-                                        </>
-                                    )}
-                                </div>
+                                {!room.isStarted && (
+                                    <div className="room-buttons">
+                                        <button onClick={() => joinRoom(room.roomName)}>Rejoindre</button>
+                                        <button className="leave-room-button" onClick={() => leaveRoom(room.roomName)}>
+                                            Quitter
+                                        </button>
+                                    </div>
+                                )}
                             </li>
                         ))}
                     </ul>
@@ -804,49 +840,56 @@ function TetrisGame() {
                             window.history.pushState(null, '', '/');
                         }}
                     >
-                        Accueil
+                        Retour à l'accueil
                     </button>
                 </div>
             )}
-
-            {/* Messages pour le leader ou les joueurs */}
-            {mode === 'multiplayer' && !isGameStarted && (
-                <div className="waiting-section">
-                    {isLeader ? (
-                        rooms.find((r) => r.roomName === room)?.players >= 2 ? (
-                            <button onClick={handleStartGameMulti}>
-                                Démarrer
-                            </button>
-                        ) : (
-                            <div>En attente d&apos;un second joueur</div>
-                        )
-                    ) : (
-                        <div>En attente que le leader commence la partie...</div>
-                    )}
-                </div>
-            )}
-
-            {mode === 'solo' && !isGameStarted && (
-                <div className="waiting-section">
-                    <button onClick={handleStartGame}>
-                        Démarrer
-                    </button>
-                </div>
-            )}
-
-            {/* Grille de jeu */}
+    
+            {/* Zone de jeu principale avec grille et spectres */}
             {isGameStarted && room && playerName && (
-                <div className="tetris-grid-container">
-                    <div className="tetris-grid">
-                        {getDisplayGrid().map((row, y) =>
-                            row.map((cell, x) => (
-                                <div
-                                    key={`${y}-${x}`}
-                                    className={`tetris-cell ${cell === 1 ? 'filled' : ''}`}
-                                />
-                            ))
-                        )}
+                <div className="game-wrapper">
+                    <div className="tetris-grid-container">
+                        {/* Grille principale */}
+                        <div className="tetris-grid">
+                            {getDisplayGrid().map((row, y) =>
+                                row.map((cell, x) => (
+                                    <div
+                                        key={`${y}-${x}`}
+                                        className={`tetris-cell ${cell === 1 ? 'filled' : ''}`}
+                                    />
+                                ))
+                            )}
+                        </div>
                     </div>
+    
+                    {/* Colonne des spectres */}
+                    <div className="spectre-container">
+                        {Object.entries(opponents).map(([playerId, { name, spectre }]) => (
+                            <div key={playerId} className="spectre">
+                                <h3>{name}</h3>
+                                <div className="spectre-grid">
+                                    {spectre.map((height, index) => (
+                                        <div
+                                            key={index}
+                                            className="spectre-bar"
+                                            style={{
+                                                height: `${((20 - height) / 20) * 100}%`
+                                            }}
+                                        ></div>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+    
+            {/* Boutons pour Pause/Reprendre et Accueil */}
+            {isGameStarted && (
+                <div className="action-buttons">
+                    <button className="pause-button" onClick={() => setIsPaused(!isPaused)}>
+                        {isPaused ? 'Reprendre' : 'Pause'}
+                    </button>
                     <button
                         className="quit-button"
                         onClick={() => {
@@ -861,28 +904,54 @@ function TetrisGame() {
                     </button>
                 </div>
             )}
-
+    
             {/* Fin de partie */}
             {gameOver && (
                 <div className="game-over">
                     <h2>Game Over</h2>
-                    <div className="game-over-buttons">
-                        <button className="game-over-button" onClick={resetGame}>
-                            Rejouer
+                    <button onClick={resetGame}>Rejouer</button>
+                    <button
+                        onClick={() => {
+                            setIsGameStarted(false);
+                            setMode(null);
+                            setRoom(null);
+                            setPlayerName(null);
+                            window.history.pushState(null, '', '/');
+                        }}
+                    >
+                        Retour à l'accueil
+                    </button>
+                </div>
+            )}
+    
+            {/* Boutons pour démarrer une partie solo ou multijoueur */}
+            {!isGameStarted && !gameOver && mode && (
+                <div className="start-buttons">
+                    {mode === 'solo' && (
+                        <button className="start-button" onClick={handleStartGame}>
+                            Démarrer le jeu
                         </button>
-                        <button
-                            className="quit-button"
-                            onClick={() => {
-                                window.location.href = 'http://localhost:5173';
-                            }}
-                        >
-                            Quitter
-                        </button>
-                    </div>
+                    )}
+                    {mode === 'multiplayer' && (
+                        <div className="waiting-section">
+                            {isLeader ? (
+                                rooms.find((r) => r.roomName === room)?.players >= 2 ? (
+                                    <button className="start-button" onClick={handleStartGameMulti}>
+                                        Démarrer
+                                    </button>
+                                ) : (
+                                    <div>En attente d&apos;un second joueur</div>
+                                )
+                            ) : (
+                                <div>En attente que le leader commence la partie...</div>
+                            )}
+                        </div>
+                    )}
                 </div>
             )}
         </div>
     );
+    
 
 }
 export default TetrisGame;

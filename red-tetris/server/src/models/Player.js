@@ -38,10 +38,27 @@ function createPlayer(name, socket) {
     }
 
     function updateSpectre() {
-        spectre = terrain[0].map((_, x) =>
-            terrain.findIndex((row) => row[x] === 1)
-        );
-        socket.emit('updateSpectre', spectre);
+
+        spectre = Array(10).fill(0).map((_, x) => {
+            for (let y = 0; y < 20; y++) {
+                if (terrain[y][x] === 1) {
+                    return y;
+                }
+            }
+            return 20;
+        });
+
+        socket.broadcast.to(roomName).emit('spectreUpdate', {
+            playerId: id,
+            playerName: name,
+            spectre
+        });
+    }
+
+    function broadcastSpectres() {
+        Object.values(players).forEach(player => {
+            player.updateSpectre();
+        });
     }
 
     function reset() {

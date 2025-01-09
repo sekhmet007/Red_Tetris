@@ -40,7 +40,7 @@ body {
   border: 3px solid #555;
   margin-top: 20px;
   border-radius: 8px;
-  width: 300px;
+  width: 310px;
 }
 
 .tetris-cell {
@@ -343,4 +343,78 @@ body {
   background-color: green;
   margin-top: 10px;
   font-size: 14px;
+}
+
+.game-wrapper {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+}
+
+.tetris-grid-container {
+  flex: 1;
+}
+
+.spectre-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 150px;
+}
+
+.spectre {
+  background-color: #333;
+  border-radius: 8px;
+  padding: 10px;
+  text-align: center;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+}
+
+.spectre h3 {
+  font-size: 16px;
+  margin-bottom: 10px;
+}
+
+.spectre-grid {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-end;
+  gap: 2px;
+  height: 200px;
+  background-color: #444;
+  padding: 5px;
+  border-radius: 4px;
+}
+
+.spectre-bar {
+  width: 15px;
+  background-color: #ff5555;
+  border-radius: 2px;
+  transition: height 0.3s ease;
+}
+
+.action-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  margin-top: 20px;
+}
+
+.pause-button,
+.quit-button {
+  padding: 10px 20px;
+  font-size: 16px;
+  color: white;
+  background-color: #3498db;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.pause-button:hover,
+.quit-button:hover {
+  background-color: #2980b9;
 }
