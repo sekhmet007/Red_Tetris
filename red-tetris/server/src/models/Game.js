@@ -96,6 +96,23 @@ function createGame(roomName, io) {
         return true;
     }
 
+    function getWinner() {
+        const activePlayers = Object.values(players).filter(
+            (player) => !player.isGameOver
+        );
+    
+        if (activePlayers.length === 1) {
+            return activePlayers[0]; // Le joueur restant est le gagnant
+        }
+    
+        if (activePlayers.length === 0) {
+            return null; // Aucun gagnant (match nul)
+        }
+    
+        // Si aucun état de fin n'est détecté, pas encore de gagnant
+        return undefined;
+    }    
+
     function resetGame() {
         isStarted = false;
         pieceSequence.length = 0;
@@ -109,13 +126,47 @@ function createGame(roomName, io) {
         io.to(roomName).emit('gameReset');
     }
 
-    function handleLineCompletion(playerId, lines) {
-        Object.values(players).forEach((player) => {
-            if (player.id !== playerId) {
-                player.receivePenaltyLines(lines - 1);
+    function handleLineCompletion(senderId, lines) {
+        console.log(`Gestion des lignes complétées - Socket ID du joueur : ${senderId}, Lignes : ${lines}`);
+        
+        const sender = Object.values(players).find(player => player.socket.id === senderId);
+        
+        if (!sender) {
+            console.error(`Erreur : Aucun joueur trouvé avec le Socket ID ${senderId}`);
+            console.log('Liste actuelle des joueurs enregistrés :', Object.values(players).map(p => ({
+                id: p.id,
+                socketId: p.socket.id,
+                name: p.name,
+            })));
+            return;
+        }
+    
+        console.log('Début de gestion des lignes complétées :');
+        console.log(`- Joueur ayant complété : ${sender.name} (ID : ${sender.id}, Socket ID : ${sender.socket.id})`);
+        console.log(`- Nombre de lignes complétées : ${lines}`);
+    
+        // Calcul des lignes de pénalité (au moins 1 ligne)
+        const penaltyLines = Math.max(1, lines);
+        console.log(`- Lignes de pénalité calculées : ${penaltyLines}`);
+    
+        // Appliquer les pénalités aux autres joueurs
+        Object.values(players).forEach(player => {
+            if (player.socket.id !== senderId) {
+                console.log(`Envoi de pénalité : ${penaltyLines} lignes de ${sender.name} à ${player.name}`);
+    
+                // Émettre un événement de pénalité
+                io.to(roomName).emit('penaltyApplied', {
+                    lines: penaltyLines,
+                    fromPlayer: sender.name,
+                    toPlayer: player.name,
+                });
+    
+                // Appliquer les lignes de pénalité
+                player.receivePenaltyLines(penaltyLines);
             }
         });
-    }
+    }    
+      
 
     function getPlayerBySocketId(socketId) {
         return Object.values(players).find(
@@ -125,15 +176,37 @@ function createGame(roomName, io) {
 
     function handlePlayerGameOver(playerId) {
         const player = players[playerId];
-        if (!player) return;
-
+        if (!player) {
+            console.error(`Le joueur avec l'ID ${playerId} n'existe pas.`);
+            return;
+        }
+    
+        // Marquer le joueur comme ayant perdu
+        player.isGameOver = true;
         player.notifyEndGame();
-        removePlayer(playerId);
-
-        if (checkGameOver()) {
-            //   const winnerId = checkGameOver();
-            io.to(roomName).emit('gameOver');
+    
+        // Vérifier s'il reste des joueurs actifs
+        const activePlayers = Object.values(players).filter((p) => !p.isGameOver);
+    
+        if (activePlayers.length === 1) {
+            // Déclarer le dernier joueur comme vainqueur
+            const winner = activePlayers[0];
+            console.log(`Le joueur ${winner.name} est déclaré vainqueur.`);
+            io.to(roomName).emit('gameOver', { 
+                winner: winner.name,
+                type: 'victory',
+            });
             resetGame();
+        } else if (activePlayers.length === 0) {
+            // Match nul si tous les joueurs perdent en même temps
+            console.log('Tous les joueurs ont perdu en même temps. Match nul.');
+            io.to(roomName).emit('gameOver', { 
+                type: 'draw',
+            });
+            resetGame();
+        } else {
+            // Continuer la partie si plusieurs joueurs sont encore actifs
+            console.log(`La partie continue avec ${activePlayers.length} joueur(s) actif(s).`);
         }
     }
 
@@ -171,6 +244,7 @@ function createGame(roomName, io) {
         checkGameOver,
         handlePlayerGameOver,
         isGameOver,
+        getWinner
     };
 }
 

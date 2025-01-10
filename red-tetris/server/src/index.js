@@ -10,6 +10,14 @@ import createGame from './models/Game.js';
 import createSoloGame from './models/SoloGame.js';
 import { generatePieceSequence } from './models/Piece.js';
 
+process.on('uncaughtException', (err) => {
+    console.error('Uncaught Exception:', err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
 
 const app = express();
 const server = http.createServer(app);
@@ -391,13 +399,20 @@ io.on('connection', (socket) => {
     });    
 
     socket.on('lineComplete', ({ room, lines }) => {
-        const game = games[room];
-        if (!game) return;
-
-        if (game.mode === 'solo') {
-            game.handleLineCompletion(lines);
-        } else if (game.mode === 'multiplayer') {
-            game.handleLineCompletion(socket.id, lines);
+        console.log(`Réception de lineComplete - Room: ${room}, Lines: ${lines}`);
+        try {
+            const game = games[room];
+            if (!game) return;
+    
+            if (game.mode === 'solo') {
+                game.handleLineCompletion(lines);
+            } else if (game.mode === 'multiplayer') {
+                console.log(`Gestion des lignes en mode multijoueur pour ${socket.id}`);
+                game.handleLineCompletion(socket.id, lines);
+            }
+        } catch (error) {
+            console.error('Erreur dans lineComplete:', error);
+            socket.emit('error', { message: 'Une erreur est survenue' });
         }
     });
 

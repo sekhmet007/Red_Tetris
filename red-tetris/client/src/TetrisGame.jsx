@@ -144,7 +144,7 @@ const formes = [
     ],
 ];
 
-const pointsParLignes = [0, 40, 100, 300, 1200];
+const pointsParLignes = [0, 100, 300, 500, 800];
 
 function TetrisGame() {
     const [grille, setGrille] = useState(
@@ -156,7 +156,11 @@ function TetrisGame() {
     const [rotation, setRotation] = useState(0);
     const [score, setScore] = useState(0);
     const [delay] = useState(250);
-    const [gameOver, setGameOver] = useState(false);
+    const [gameOverState, setGameOverState] = useState({
+        isGameOver: false,
+        winner: null,
+        type: null
+    });
     const [fastDrop, setFastDrop] = useState(false);
     const [isLeader, setIsLeader] = useState(false);
     const [rooms, setRooms] = useState([]);
@@ -298,6 +302,43 @@ function TetrisGame() {
         });
     };
 
+    const checkCompletedLines = (grille) => {
+        return grille.filter((line) =>
+            line.every((cell) => cell > 0) // Exclure les lignes de pénalité (valeurs négatives)
+        );
+    };
+    
+    const cleanPenaltyLines = (grille) => {
+        return grille.map((line) =>
+            line.every((cell) => cell === -1) // Vérifie si c'est une ligne de pénalité
+                ? Array(line.length).fill(0) // Remplace par une ligne vide
+                : line
+        );
+    };
+
+    // Ajouter cette fonction juste après la déclaration des states, avec les autres fonctions
+    const handlePenalty = useCallback(({ lines, fromPlayer, toPlayer }) => {
+        if (playerName === toPlayer) {
+            console.log(`Réception de ${lines} lignes de pénalité de ${fromPlayer}`);
+    
+            setGrille((prevGrille) => {
+                const newGrille = [...prevGrille.map(row => [...row])];
+    
+                // Ajouter les lignes de pénalité en bas
+                const lignesRestantes = newGrille.slice(lines);
+                const penalite = Array.from({ length: lines }, () =>
+                    Array(LARGEUR_GRILLE).fill(-1) // Utiliser -1 pour identifier les pénalités
+                );
+                const grilleAvecPenalite = [...lignesRestantes, ...penalite];
+    
+                console.log('Grille avec pénalités :');
+                console.table(grilleAvecPenalite);
+    
+                return grilleAvecPenalite; // Pas de nettoyage
+            });
+        }
+    }, [playerName]);    
+    
     const resetGame = useCallback(() => {
         setGrille(
             Array.from({ length: HAUTEUR_GRILLE }, () =>
@@ -313,8 +354,12 @@ function TetrisGame() {
         setNumForme(null);
         setIsGameStarted(false);
         setIsReady(false);
-        setGameOver(false);
-
+        setGameOverState({
+            isGameOver: false,
+            winner: null,
+            type: null
+        });
+    
         if (mode === 'solo') {
             socket.emit('restartGame', { room });
         }
@@ -374,6 +419,7 @@ function TetrisGame() {
                 }
             }
             if (lignesEffacees > 0) {
+                console.log(`Envoi de la complétion de ${lignesEffacees} lignes`);
                 socket.emit('lineComplete', {
                     room,
                     lines: lignesEffacees,
@@ -386,12 +432,12 @@ function TetrisGame() {
 
     const fixerForme = useCallback(() => {
         const newGrille = grille.map((row) => [...row]);
-
+    
         if (typeof numForme !== 'number' || !formes[numForme]) {
             console.error('fixerForme - Forme invalide pour numForme :', numForme);
             return;
         }
-
+    
         formes[numForme][rotation].forEach((row, y) => {
             row.forEach((cell, x) => {
                 if (cell === 1) {
@@ -408,11 +454,14 @@ function TetrisGame() {
                 }
             });
         });
-
+    
+        const lignesCompletes = checkCompletedLines(newGrille);
+        console.log('Lignes complétées (sans pénalités) :', lignesCompletes);
+    
         const lignesEffacees = effacerLignesCompletes(newGrille);
         setScore(score + pointsParLignes[lignesEffacees]);
         setGrille(newGrille);
-
+    
         if (mode === 'multiplayer') {
             setPieceIndex((prevIndex) => {
                 const newIndex = prevIndex + 1;
@@ -425,7 +474,11 @@ function TetrisGame() {
             setPieceIndex((prevIndex) => {
                 const newIndex = prevIndex + 1;
                 if (newIndex >= pieceSequence.length) {
-                    setGameOver(true);
+                    setGameOverState((prev) => ({
+                        ...prev,
+                        isGameOver: true,
+                        type: 'solo'
+                    }));
                     return prevIndex;
                 }
                 setNumForme(pieceSequence[newIndex]);
@@ -442,22 +495,24 @@ function TetrisGame() {
         effacerLignesCompletes,
         pieceSequence,
         mode,
-    ]);
+    ]);    
 
     const getDisplayGrid = useCallback(() => {
-
         if (numForme === null) {
             return grille;
         }
-
+    
+        // Copie de la grille actuelle
         const displayGrid = grille.map((row) => [...row]);
-
+    
         try {
+            // Vérification de la validité de la forme et de la rotation
             if (!formes[numForme] || !formes[numForme][rotation]) {
                 console.warn('Forme ou rotation invalide', { numForme, rotation });
                 return displayGrid;
             }
-
+    
+            // Ajout de la forme en mouvement sur la grille
             formes[numForme][rotation].forEach((row, y) => {
                 row.forEach((cell, x) => {
                     if (cell === 1) {
@@ -469,12 +524,14 @@ function TetrisGame() {
                             newX >= 0 &&
                             newX < LARGEUR_GRILLE
                         ) {
+                            // Applique la forme à la grille
                             displayGrid[newY][newX] = 1;
                         }
                     }
                 });
             });
-
+    
+            // Retourne la grille avec la pièce et les pénalités intactes
             return displayGrid;
         } catch (error) {
             console.error('Erreur dans getDisplayGrid:', error);
@@ -516,11 +573,88 @@ function TetrisGame() {
 
         alert(`Vous avez quitté la room : ${roomName}`);
     };
-
+    
+    const hardDrop = () => {
+        let dropDistance = 0;
+        
+        // Calculer la distance maximale de chute
+        while (!collision(0, dropDistance + 1)) {
+            dropDistance++;
+        }
+        
+        // Calculer la position finale
+        const finalY = formY + dropDistance;
+        
+        // Déplacer la pièce à la position finale
+        setFormY(finalY);
+    
+        // Fix la pièce à la position finale en modifiant fixerForme
+        const newGrille = grille.map(row => [...row]);
+        
+        // Placer la pièce à sa position finale dans la grille
+        formes[numForme][rotation].forEach((row, y) => {
+            row.forEach((cell, x) => {
+                if (cell === 1) {
+                    const newX = formX + x;
+                    const newY = finalY + y;
+                    if (newY >= 0 && newY < HAUTEUR_GRILLE && newX >= 0 && newX < LARGEUR_GRILLE) {
+                        newGrille[newY][newX] = 1;
+                    }
+                }
+            });
+        });
+    
+        // Effacer les lignes complètes et mettre à jour le score
+        const lignesEffacees = effacerLignesCompletes(newGrille);
+        setScore(score + pointsParLignes[lignesEffacees]);
+        setGrille(newGrille);
+    
+        // Mettre à jour l'index de pièce selon le mode de jeu
+        if (mode === 'multiplayer') {
+            setPieceIndex(prevIndex => {
+                const newIndex = prevIndex + 1;
+                const nextPieceIndex = pieceSequence[newIndex % pieceSequence.length];
+                setNumForme(nextPieceIndex);
+                return newIndex;
+            });
+        } else if (mode === 'solo') {
+            setPieceIndex(prevIndex => {
+                const newIndex = prevIndex + 1;
+                if (newIndex >= pieceSequence.length) {
+                    setGameOverState(prev => ({
+                        ...prev,
+                        isGameOver: true,
+                        type: 'solo'
+                    }));
+                    return prevIndex;
+                }
+                setNumForme(pieceSequence[newIndex]);
+                return newIndex;
+            });
+        }
+        
+        // Réinitialiser la position pour la prochaine pièce
+        setFormX(X_INITIAL);
+        setFormY(Y_INITIAL);
+        setRotation(0);
+        
+        // Vérifier game over
+        if (collision(0, 0)) {
+            setGameOverState(prev => ({
+                ...prev,
+                isGameOver: true,
+                type: mode === 'solo' ? 'solo' : 'multiplayer'
+            }));
+            if (mode === 'multiplayer') {
+                socket.emit('gameOver', { room, playerId: socket.id });
+            }
+        }
+    };
+    
     useEffect(() => {
         // Réinitialisation de l'état du jeu lorsque le mode change
         if (!mode) return;
-
+    
         setNumForme(null);
         setPieceIndex(0);
         setPieceSequence([]);
@@ -529,9 +663,13 @@ function TetrisGame() {
         setRotation(0);
         setGrille(Array.from({ length: HAUTEUR_GRILLE }, () => Array(LARGEUR_GRILLE).fill(0)));
         setScore(0);
-        setGameOver(false);
+        setGameOverState({
+            isGameOver: false,
+            winner: null,
+            type: null
+        });
         setIsGameStarted(false);
-    }, [mode]);
+    }, [mode]);    
 
     useEffect(() => {
         // Génération automatique du nom du joueur si absent
@@ -565,13 +703,13 @@ function TetrisGame() {
         if (mode === 'multiplayer') {
             const handleGameStarted = ({ pieces }) => {
                 console.log('Événement gameStarted reçu avec les pièces :', pieces);
-
+    
                 if (!pieces || !Array.isArray(pieces) || pieces.length === 0) {
                     console.error('Erreur : Séquence de pièces vide ou invalide reçue.');
                     alert('Impossible de démarrer la partie.');
                     return;
                 }
-
+    
                 setPieceSequence(pieces);
                 setPieceIndex(0);
                 setNumForme(pieces[0]);
@@ -581,32 +719,51 @@ function TetrisGame() {
                 setFormY(Y_INITIAL);
                 setRotation(0);
                 setScore(0);
-            };
-
-            const handlePenalty = ({ lines }) => {
-                setGrille((prevGrille) => {
-                    const newGrille = [...prevGrille];
-                    for (let i = 0; i < lines; i++) {
-                        newGrille.shift();
-                        newGrille.push(Array(LARGEUR_GRILLE).fill(1));
-                    }
-                    return newGrille;
+                setGameOverState({
+                    isGameOver: false,
+                    winner: null,
+                    type: null
                 });
             };
-            console.log('Configuration de l\'écoute de l\'événement gameStarted...');
+    
+            const handleGameOver = ({ winner, type }) => {
+                setGameOverState({
+                    isGameOver: true,
+                    winner,
+                    type
+                });
+                setIsGameStarted(false);
+            };
+    
+            const handleGameReset = () => {
+                setGameOverState({
+                    isGameOver: false,
+                    winner: null,
+                    type: null
+                });
+                setGrille(Array.from({ length: HAUTEUR_GRILLE }, () => Array(LARGEUR_GRILLE).fill(0)));
+            };
+    
             socket.on('gameStarted', handleGameStarted);
             socket.on('penaltyApplied', handlePenalty);
+            socket.on('updateGrid', ({ terrain }) => {
+                setGrille(terrain);
+            });            
             socket.on('youAreLeader', () => setIsLeader(true));
             socket.on('roomsUpdated', (updatedRooms) => setRooms(updatedRooms));
-
+            socket.on('gameOver', handleGameOver);
+            socket.on('gameReset', handleGameReset);
+    
             return () => {
                 socket.off('gameStarted', handleGameStarted);
                 socket.off('penaltyApplied', handlePenalty);
                 socket.off('youAreLeader');
                 socket.off('roomsUpdated');
+                socket.off('gameOver');
+                socket.off('gameReset');
             };
         }
-    }, [mode]);
+    }, [mode, handlePenalty]);
 
     useEffect(() => {
         // Émission de l'événement pour rejoindre une room lorsqu'une room est définie
@@ -664,43 +821,52 @@ function TetrisGame() {
 
     useEffect(() => {
         // Mise à jour des actions liées au game over
-        if (gameOver && mode === 'solo') {
-            socket.emit('gameOver', { room });
+        if (gameOverState.isGameOver) {
+            if (mode === 'solo') {
+                socket.emit('gameOver', { room });
+            } else if (mode === 'multiplayer') {
+                socket.emit('gameOver', { room, playerId: socket.id });
+            }
         }
-    }, [gameOver, mode, room]);
+    }, [gameOverState.isGameOver, mode, room]);    
 
     useEffect(() => {
         // Boucle principale pour la descente automatique des pièces
-        if (!mode || gameOver) return;
-
+        if (!mode || gameOverState.isGameOver) return;
+    
         const interval = setInterval(() => {
             if (numForme === null) return;
-
+    
             if (collision(0, 1)) {
                 fixerForme();
                 setFormX(X_INITIAL);
                 setFormY(Y_INITIAL);
                 setRotation(0);
-
+    
+                // Vérification de collision pour game over
                 if (collision(0, 0)) {
-                    setGameOver(true);
                     if (mode === 'multiplayer') {
                         socket.emit('gameOver', { room, playerId: socket.id });
                     }
+                    setGameOverState(prev => ({
+                        ...prev,
+                        isGameOver: true,
+                        type: mode === 'solo' ? 'solo' : 'multiplayer'
+                    }));
                 }
             } else {
                 setFormY((prev) => prev + 1);
             }
         }, fastDrop ? 50 : delay);
-
+    
         return () => clearInterval(interval);
-    }, [collision, fixerForme, gameOver, delay, fastDrop, room, mode, numForme]);
+    }, [collision, fixerForme, gameOverState.isGameOver, delay, fastDrop, room, mode, numForme]);
 
     useEffect(() => {
         // Gestion des événements clavier pour le contrôle des pièces
         const handleKeyDown = (event) => {
-            if (gameOver) return;
-
+            if (gameOverState.isGameOver) return;
+            
             if (event.key === 'ArrowLeft' && !collision(-1, 0)) {
                 setFormX((prev) => prev - 1);
             } else if (event.key === 'ArrowRight' && !collision(1, 0)) {
@@ -710,25 +876,27 @@ function TetrisGame() {
                 if (!collision(0, 0, newRotation)) {
                     setRotation(newRotation);
                 }
+            } else if (event.key === 'ArrowDown' && !collision(0, 1)) {
+                setFormY((prev) => prev + 1);
             } else if (event.key === ' ') {
-                setFastDrop(true);
+                hardDrop();
             }
-        };
-
+        };        
+    
         const handleKeyUp = (event) => {
-            if (event.key === ' ') {
+            if (event.key === 'ArrowDown') {
                 setFastDrop(false);
             }
         };
-
+    
         window.addEventListener('keydown', handleKeyDown);
         window.addEventListener('keyup', handleKeyUp);
-
+    
         return () => {
             window.removeEventListener('keydown', handleKeyDown);
             window.removeEventListener('keyup', handleKeyUp);
         };
-    }, [collision, rotation, numForme, gameOver]);
+    }, [collision, rotation, numForme, gameOverState.isGameOver]);
 
     return (
         <div className="tetris-game">
@@ -736,7 +904,7 @@ function TetrisGame() {
             {isGameStarted && (
                 <div className="score">Score: {score}</div>
             )}
-
+    
             {/* Sélection du mode */}
             {!mode && (
                 <div className="mode-selector">
@@ -748,7 +916,7 @@ function TetrisGame() {
                     </button>
                 </div>
             )}
-
+    
             {/* Liste des rooms pour le mode multijoueur */}
             {mode === 'multiplayer' && !isGameStarted && (
                 <div className="room-list">
@@ -792,7 +960,7 @@ function TetrisGame() {
                     </button>
                 </div>
             )}
-
+    
             {/* Messages pour le leader ou les joueurs */}
             {mode === 'multiplayer' && !isGameStarted && (
                 <div className="waiting-section">
@@ -809,7 +977,7 @@ function TetrisGame() {
                     )}
                 </div>
             )}
-
+    
             {mode === 'solo' && !isGameStarted && (
                 <div className="waiting-section">
                     <button onClick={handleStartGame}>
@@ -817,7 +985,7 @@ function TetrisGame() {
                     </button>
                 </div>
             )}
-
+    
             {/* Grille de jeu */}
             {isGameStarted && room && playerName && (
                 <div className="tetris-grid-container">
@@ -826,7 +994,10 @@ function TetrisGame() {
                             row.map((cell, x) => (
                                 <div
                                     key={`${y}-${x}`}
-                                    className={`tetris-cell ${cell === 1 ? 'filled' : ''}`}
+                                    className={`tetris-cell ${
+                                        cell === 1 ? 'filled' :
+                                        cell === -1 ? 'penalty' : ''
+                                    }`}
                                 />
                             ))
                         )}
@@ -845,28 +1016,52 @@ function TetrisGame() {
                     </button>
                 </div>
             )}
-
+    
             {/* Fin de partie */}
-            {gameOver && (
-                <div className="game-over">
-                    <h2>Game Over</h2>
-                    <div className="game-over-buttons">
-                        <button className="game-over-button" onClick={resetGame}>
-                            Rejouer
-                        </button>
-                        <button
-                            className="quit-button"
-                            onClick={() => {
-                                window.location.href = 'http://localhost:5173';
-                            }}
-                        >
-                            Quitter
-                        </button>
+            {gameOverState.isGameOver && (
+                <div className="game-over-overlay">
+                    <div className="game-over-content">
+                        <h2 className="winner-message">
+                            {gameOverState.type === 'victory' 
+                                ? (gameOverState.winner === playerName 
+                                    ? "🏆 Félicitations ! Vous avez gagné ! 🏆"
+                                    : `👑 ${gameOverState.winner} remporte la partie !`)
+                                : gameOverState.type === 'draw' 
+                                    ? "🤝 Match nul ! 🤝"
+                                    : "Game Over !"}
+                        </h2>
+                        <div className="score-display">
+                            Score final : {score}
+                        </div>
+                        <div className="game-over-buttons">
+                            {(isLeader || mode === 'solo') && (
+                                <button 
+                                    className="game-over-button retry-button"
+                                    onClick={resetGame}
+                                >
+                                    🔄 Rejouer
+                                </button>
+                            )}
+                            <button
+                                className="game-over-button quit-button"
+                                onClick={() => {
+                                    window.location.href = 'http://localhost:5173';
+                                }}
+                            >
+                                🏠 Retour à l'accueil
+                            </button>
+                        </div>
+                        {mode === 'multiplayer' && !isLeader && (
+                            <p className="waiting-message">
+                                En attente que le leader démarre une nouvelle partie...
+                            </p>
+                        )}
                     </div>
                 </div>
             )}
         </div>
     );
+    
 
 }
 export default TetrisGame;
