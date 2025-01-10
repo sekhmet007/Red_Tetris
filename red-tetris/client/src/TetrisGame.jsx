@@ -316,7 +316,6 @@ function TetrisGame() {
         );
     };
 
-    // Ajouter cette fonction juste après la déclaration des states, avec les autres fonctions
     const handlePenalty = useCallback(({ lines, fromPlayer, toPlayer }) => {
         if (playerName === toPlayer) {
             console.log(`Réception de ${lines} lignes de pénalité de ${fromPlayer}`);
@@ -495,7 +494,7 @@ function TetrisGame() {
         effacerLignesCompletes,
         pieceSequence,
         mode,
-    ]);    
+    ]);
 
     const getDisplayGrid = useCallback(() => {
         if (numForme === null) {
@@ -1048,7 +1047,7 @@ function TetrisGame() {
                                     window.location.href = 'http://localhost:5173';
                                 }}
                             >
-                                🏠 Retour à l'accueil
+                                🏠 Retour à l&apos;accueil
                             </button>
                         </div>
                         {mode === 'multiplayer' && !isLeader && (

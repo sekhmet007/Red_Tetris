@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 
-function createPlayer(name, socket, roomName, isSoloMode = false) {
+function createPlayer(name, socket, roomName) {
     const id = uuidv4();
     let score = 0;
     const terrain = Array.from({ length: 20 }, () => Array(10).fill(0));
