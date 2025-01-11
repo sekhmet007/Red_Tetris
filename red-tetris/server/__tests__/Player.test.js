@@ -42,6 +42,18 @@ describe('Player Model', () => {
         expect(player.score).toEqual(100);
     });
 
+	it('should apply penalty lines correctly', () => {
+		const socket = { id: '1', emit: jest.fn() };
+		const player = createPlayer('Player 1', socket, 'room1');
+		player.receivePenaltyLines(2);
+
+		expect(player.terrain.slice(-2)).toEqual([
+			Array(10).fill(-1),
+			Array(10).fill(-1),
+		]);
+		expect(socket.emit).toHaveBeenCalledWith('penaltyApplied', expect.any(Object));
+	});
+
     it('should notify the player of the end of the game correctly', () => {
         const name = 'Player 1';
         const socket = { id: '1', emit: jest.fn() };

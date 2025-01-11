@@ -32,5 +32,17 @@ describe('Piece Model', () => {
             }
         }).not.toThrow();
     });
+
+	it('should rotate a piece correctly', () => {
+		const piece = createPiece(shapes[0].shape, shapes[0].rotationStates);
+		const initialShape = piece.getCurrentShape();
+		piece.rotate();
+		expect(piece.getCurrentShape()).not.toEqual(initialShape);
+		piece.rotate();
+		piece.rotate();
+		piece.rotate();
+		expect(piece.getCurrentShape()).toEqual(initialShape);
+	});
+
 });
 

@@ -68,4 +68,15 @@ describe('createSoloGame', () => {
         expect(soloGame.isStarted).toEqual(false);
         expect(socket.emit).toHaveBeenCalledWith('gameOver');
     });
+
+	it('should reset the solo game correctly', () => {
+		const socket = { emit: jest.fn() };
+		const soloGame = createSoloGame('room1', 'Player 1', socket);
+
+		soloGame.startGame();
+		soloGame.resetGame();
+
+		expect(soloGame.isStarted).toBe(false);
+		expect(soloGame.pieceSequence).toEqual([]);
+	});
 });

@@ -14,6 +14,17 @@ describe('createGame', () => {
         });
     });
 
+	it('should assign a leader when a player joins', () => {
+		const game = createGame('roomName', [
+			{ id: '1', name: 'Player 1', socket: { id: '1' } },
+			{ id: '2', name: 'Player 2', socket: { id: '2' } },
+		]);
+
+		expect(game.leaderId).toBe('1');
+		game.removePlayer('1');
+		expect(game.leaderId).toBe('2');
+	});
+
     it('should start the game when startGame is called', () => {
         const game = createGame('roomName', [
             { id: '1', name: 'Player 1', socket: { id: '1' } },
