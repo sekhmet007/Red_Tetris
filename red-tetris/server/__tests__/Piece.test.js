@@ -2,11 +2,17 @@ import { shapes, createPiece, generatePiece, generatePieceSequence, validateShap
 import { describe, it, expect } from '@jest/globals';
 
 describe('Piece Model', () => {
-    it('should generate a valid piece', () => {
+    it('should generate a piece with valid properties', () => {
         const piece = generatePiece();
+
+        // Vérifiez que la pièce générée a les bonnes propriétés
         expect(piece).toHaveProperty('shape');
         expect(piece).toHaveProperty('rotationStates');
         expect(Array.isArray(piece.rotationStates)).toBe(true);
+
+        // Vérifiez que la forme existe dans la liste des formes
+        const validShapes = shapes.map(s => s.shape);
+        expect(validShapes).toContain(piece.shape);
     });
 
     it('should generate a sequence of pieces', () => {
@@ -26,7 +32,7 @@ describe('Piece Model', () => {
         expect(clonedPiece.shape).toEqual(originalPiece.shape);
         expect(clonedPiece.rotationStates).toEqual(originalPiece.rotationStates);
 
-        // Vérifiez que ce sont des objets distincts
+        // Assurez-vous que les objets ne partagent pas la même référence
         expect(clonedPiece.rotationStates).not.toBe(originalPiece.rotationStates);
     });
 
@@ -51,7 +57,7 @@ describe('Piece Model', () => {
 
     it('should shuffle an array correctly', () => {
         const originalArray = [1, 2, 3, 4, 5];
-        const shuffleAttempts = 10;
+        const shuffleAttempts = 1000; // Augmenter les tentatives pour une meilleure statistique
         let identicalShuffleCount = 0;
 
         for (let i = 0; i < shuffleAttempts; i++) {
@@ -69,8 +75,9 @@ describe('Piece Model', () => {
             }
         }
 
-        // L'ordre ne doit pas être identique dans plus d'une tentative
-        expect(identicalShuffleCount).toBeLessThan(shuffleAttempts);
+        // Ajustez le seuil à un pourcentage réaliste
+        const maxAllowedIdentical = Math.ceil(shuffleAttempts * 0.1);
+        expect(identicalShuffleCount).toBeLessThanOrEqual(maxAllowedIdentical);
     });
 });
 
