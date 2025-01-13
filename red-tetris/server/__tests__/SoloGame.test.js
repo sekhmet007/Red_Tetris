@@ -8,7 +8,7 @@ describe('createSoloGame', () => {
         const socket = { emit: jest.fn() };
         const soloGame = createSoloGame(roomName, playerName, socket);
 
-        expect(soloGame.playerName).toEqual(playerName);
+        expect(soloGame.playerName.roomName).toEqual(playerName);
         expect(soloGame.roomName).toEqual(roomName);
         expect(soloGame.mode).toEqual('solo');
         expect(soloGame.pieceSequence).toEqual([]);

@@ -169,8 +169,9 @@ function createPiece(shape, rotationStates) {
   }
 
   function clone() {
-    return createPiece(shape, rotationStates);
+      return createPiece(shape, JSON.parse(JSON.stringify(rotationStates)));
   }
+
 
   return {
     shape,
@@ -203,4 +204,4 @@ function generatePiece() {
   return createPiece(selectedShape.shape, selectedShape.rotationStates);
 }
 
-export { shapes, createPiece, generatePiece, generatePieceSequence };
+export { shapes, createPiece, generatePiece, generatePieceSequence, validateShapes, shuffleArray };
