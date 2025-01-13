@@ -1,5 +1,5 @@
 import { describe, it, expect, jest } from '@jest/globals';
-import { createSoloGame } from '../models/SoloGame';
+import createSoloGame  from '../src/models/SoloGame';
 
 describe('createSoloGame', () => {
     it('should create a solo game with the correct players', () => {

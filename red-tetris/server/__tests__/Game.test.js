@@ -1,4 +1,4 @@
-import createGame from '../models/Game';
+import createGame from '../src/models/Game';
 import { describe, it, expect } from '@jest/globals';
 
 describe('createGame', () => {
@@ -33,7 +33,7 @@ describe('createGame', () => {
 
         expect(game.isStarted).toBe(false);
 
-        game.startGame();
+        game.startGameMulti();
 
         expect(game.isStarted).toBe(true);
     });

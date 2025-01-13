@@ -1,5 +1,5 @@
 import { describe, it, expect, jest } from '@jest/globals';
-import { createPlayer } from '../models/Player';
+import  createPlayer from '../src/models/Player';
 
 describe('Player Model', () => {
     it('should create a player with the correct properties', () => {
