@@ -484,4 +484,106 @@ describe('createGame', () => {
         expect(game.checkGameOver()).toBeNull();
     });
 
+    it('should mark a player as game over and notify them', () => {
+        const game = createGame('roomName', mockIO);
+        const socket1 = { ...mockSocket, id: 'socket1' };
+
+        const player = game.addPlayer('Player 1', { id: '1', socket: socket1 });
+
+        const notifyEndGameSpy = jest.spyOn(player, 'notifyEndGame');
+        game.handlePlayerGameOver('1');
+
+        // Vérifier que le joueur est marqué comme "game over"
+        expect(player.isGameOver).toBe(true);
+
+        // Vérifier que notifyEndGame est appelé
+        expect(notifyEndGameSpy).toHaveBeenCalled();
+
+        notifyEndGameSpy.mockRestore();
+    });
+
+    it('should declare the last active player as the winner', () => {
+        const game = createGame('roomName', mockIO);
+        const socket1 = { ...mockSocket, id: 'socket1' };
+        const socket2 = { ...mockSocket, id: 'socket2' };
+
+        const player1 = game.addPlayer('Player 1', { id: '1', socket: socket1 });
+        const player2 = game.addPlayer('Player 2', { id: '2', socket: socket2 });
+
+        const ioEmitSpy = jest.spyOn(mockIO, 'emit');
+        game.handlePlayerGameOver('2');
+
+        // Vérifier que le dernier joueur est déclaré vainqueur
+        expect(ioEmitSpy).toHaveBeenCalledWith('gameOver', {
+            winner: player1.name,
+            type: 'victory',
+        });
+
+        // Vérifier que le jeu est réinitialisé
+        expect(game.isStarted).toBe(false);
+
+        ioEmitSpy.mockRestore();
+    });
+
+    it('should declare a draw when all players are game over', () => {
+        const game = createGame('roomName', mockIO);
+        const socket1 = { ...mockSocket, id: 'socket1' };
+        const socket2 = { ...mockSocket, id: 'socket2' };
+
+        game.addPlayer('Player 1', { id: '1', socket: socket1 });
+        game.addPlayer('Player 2', { id: '2', socket: socket2 });
+
+        const ioEmitSpy = jest.spyOn(mockIO, 'emit');
+
+        // Déclarer tous les joueurs comme "game over"
+        game.handlePlayerGameOver('1');
+        game.handlePlayerGameOver('2');
+
+        // Vérifier qu'un match nul est déclaré
+        expect(ioEmitSpy).toHaveBeenCalledWith('gameOver', {
+            type: 'draw',
+        });
+
+        // Vérifier que le jeu est réinitialisé
+        expect(game.isStarted).toBe(false);
+
+        ioEmitSpy.mockRestore();
+    });
+
+    it('should continue the game if multiple players are still active', () => {
+        const game = createGame('roomName', mockIO);
+        const socket1 = { ...mockSocket, id: 'socket1' };
+        const socket2 = { ...mockSocket, id: 'socket2' };
+        const socket3 = { ...mockSocket, id: 'socket3' };
+
+        game.addPlayer('Player 1', { id: '1', socket: socket1 });
+        game.addPlayer('Player 2', { id: '2', socket: socket2 });
+        game.addPlayer('Player 3', { id: '3', socket: socket3 });
+
+        const consoleLogSpy = jest.spyOn(console, 'log');
+
+        // Marquer un joueur comme "game over"
+        game.handlePlayerGameOver('1');
+
+        // Vérifier que le jeu continue
+        expect(consoleLogSpy).toHaveBeenCalledWith('La partie continue avec 2 joueur(s) actif(s).');
+        expect(game.isStarted).toBe(true);
+
+        consoleLogSpy.mockRestore();
+    });
+
+    it('should log an error if the player does not exist', () => {
+        const game = createGame('roomName', mockIO);
+
+        const consoleErrorSpy = jest.spyOn(console, 'error');
+
+        // Appeler la fonction avec un ID de joueur inexistant
+        game.handlePlayerGameOver('nonexistentPlayerId');
+
+        // Vérifier que l'erreur est loguée
+        expect(consoleErrorSpy).toHaveBeenCalledWith("Le joueur avec l'ID nonexistentPlayerId n'existe pas.");
+
+        consoleErrorSpy.mockRestore();
+    });
+
 });
