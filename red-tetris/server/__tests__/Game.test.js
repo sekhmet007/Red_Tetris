@@ -301,4 +301,133 @@ describe('createGame', () => {
         });
     });
 
+    describe('isValidName', () => {
+        it('should return true for valid names', () => {
+            const game = createGame('roomName', mockIO);
+            expect(game.isValidName('Valid Name')).toBe(true);
+        });
+
+        it('should return false for invalid names', () => {
+            const game = createGame('roomName', mockIO);
+            expect(game.isValidName('')).toBe(false);
+            expect(game.isValidName(null)).toBe(false);
+            expect(game.isValidName(undefined)).toBe(false);
+            expect(game.isValidName(123)).toBe(false);
+        });
+    });
+
+    it('should return the correct player by socket ID', () => {
+        const game = createGame('roomName', mockIO);
+        const socket1 = { ...mockSocket, id: 'socket1' };
+        const socket2 = { ...mockSocket, id: 'socket2' };
+
+        const player1 = game.addPlayer('Player 1', { id: '1', socket: socket1 });
+        const player2 = game.addPlayer('Player 2', { id: '2', socket: socket2 });
+
+        expect(game.getPlayerBySocketId('socket1')).toEqual(player1);
+        expect(game.getPlayerBySocketId('socket2')).toEqual(player2);
+        expect(game.getPlayerBySocketId('nonexistent')).toBeUndefined();
+    });
+
+    it('should declare a winner when one player remains', () => {
+        const game = createGame('roomName', mockIO);
+        const socket1 = { ...mockSocket, id: 'socket1' };
+        const socket2 = { ...mockSocket, id: 'socket2' };
+
+        game.addPlayer('Player 1', { id: '1', socket: socket1 });
+        game.addPlayer('Player 2', { id: '2', socket: socket2 });
+
+        game.handlePlayerGameOver('2');
+
+        expect(mockIO.emit).toHaveBeenCalledWith('gameOver', {
+            winner: 'Player 1',
+            type: 'victory',
+        });
+    });
+
+    it('should declare a draw when all players lose', () => {
+        const game = createGame('roomName', mockIO);
+        const socket1 = { ...mockSocket, id: 'socket1' };
+        const socket2 = { ...mockSocket, id: 'socket2' };
+
+        game.addPlayer('Player 1', { id: '1', socket: socket1 });
+        game.addPlayer('Player 2', { id: '2', socket: socket2 });
+
+        game.handlePlayerGameOver('1');
+        game.handlePlayerGameOver('2');
+
+        expect(mockIO.emit).toHaveBeenCalledWith('gameOver', {
+            type: 'draw',
+        });
+    });
+
+    it('should continue the game if multiple players remain', () => {
+        const game = createGame('roomName', mockIO);
+        const socket1 = { ...mockSocket, id: 'socket1' };
+        const socket2 = { ...mockSocket, id: 'socket2' };
+        const socket3 = { ...mockSocket, id: 'socket3' };
+
+        game.addPlayer('Player 1', { id: '1', socket: socket1 });
+        game.addPlayer('Player 2', { id: '2', socket: socket2 });
+        game.addPlayer('Player 3', { id: '3', socket: socket3 });
+
+        game.handlePlayerGameOver('1');
+
+        expect(mockIO.emit).not.toHaveBeenCalledWith('gameOver');
+    });
+
+    it('should return true if all players are marked as game over', () => {
+        const game = createGame('roomName', mockIO);
+        const socket1 = { ...mockSocket, id: 'socket1' };
+        const socket2 = { ...mockSocket, id: 'socket2' };
+
+        const player1 = game.addPlayer('Player 1', { id: '1', socket: socket1 });
+        const player2 = game.addPlayer('Player 2', { id: '2', socket: socket2 });
+
+        player1.isGameOver = true;
+        player2.isGameOver = true;
+
+        expect(game.isGameOver()).toBe(true);
+    });
+
+    it('should return false if at least one player is still active', () => {
+        const game = createGame('roomName', mockIO);
+        const socket1 = { ...mockSocket, id: 'socket1' };
+        const socket2 = { ...mockSocket, id: 'socket2' };
+
+        const player1 = game.addPlayer('Player 1', { id: '1', socket: socket1 });
+        const player2 = game.addPlayer('Player 2', { id: '2', socket: socket2 });
+
+        player1.isGameOver = true;
+
+        expect(game.isGameOver()).toBe(false);
+    });
+
+    it('should return the ID of the last active player', () => {
+        const game = createGame('roomName', mockIO);
+        const socket1 = { ...mockSocket, id: 'socket1' };
+        const socket2 = { ...mockSocket, id: 'socket2' };
+
+        const player1 = game.addPlayer('Player 1', { id: '1', socket: socket1 });
+        const player2 = game.addPlayer('Player 2', { id: '2', socket: socket2 });
+
+        player2.isGameOver = true;
+
+        expect(game.checkGameOver()).toBe('1');
+    });
+
+    it('should return null if no players are active', () => {
+        const game = createGame('roomName', mockIO);
+        const socket1 = { ...mockSocket, id: 'socket1' };
+        const socket2 = { ...mockSocket, id: 'socket2' };
+
+        const player1 = game.addPlayer('Player 1', { id: '1', socket: socket1 });
+        const player2 = game.addPlayer('Player 2', { id: '2', socket: socket2 });
+
+        player1.isGameOver = true;
+        player2.isGameOver = true;
+
+        expect(game.checkGameOver()).toBeNull();
+    });
+
 });
