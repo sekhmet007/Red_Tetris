@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<coverage generated="1736860431899" clover="3.2.0">
-  <project timestamp="1736860431899" name="All files">
-    <metrics statements="198" coveredstatements="107" conditionals="55" coveredconditionals="22" methods="54" coveredmethods="30" elements="307" coveredelements="159" complexity="0" loc="198" ncloc="198" packages="1" files="4" classes="4"/>
+<coverage generated="1736861807787" clover="3.2.0">
+  <project timestamp="1736861807787" name="All files">
+    <metrics statements="198" coveredstatements="138" conditionals="55" coveredconditionals="33" methods="54" coveredmethods="37" elements="307" coveredelements="208" complexity="0" loc="198" ncloc="198" packages="1" files="4" classes="4"/>
     <file name="Game.js" path="/Users/sekhmet/Documents/Tetris/red-tetris/server/src/models/Game.js">
-      <metrics statements="112" coveredstatements="21" conditionals="40" coveredconditionals="8" methods="28" coveredmethods="4"/>
+      <metrics statements="112" coveredstatements="52" conditionals="40" coveredconditionals="18" methods="28" coveredmethods="11"/>
       <line num="7" count="15" type="cond" truecount="1" falsecount="1"/>
       <line num="8" count="0" type="stmt"/>
       <line num="11" count="15" type="stmt"/>
@@ -11,51 +11,51 @@
       <line num="13" count="15" type="stmt"/>
       <line num="14" count="15" type="stmt"/>
       <line num="15" count="15" type="stmt"/>
-      <line num="18" count="16" type="cond" truecount="2" falsecount="0"/>
-      <line num="22" count="16" type="cond" truecount="2" falsecount="0"/>
+      <line num="18" count="24" type="cond" truecount="2" falsecount="0"/>
+      <line num="22" count="24" type="cond" truecount="2" falsecount="0"/>
       <line num="23" count="2" type="stmt"/>
       <line num="24" count="2" type="stmt"/>
-      <line num="26" count="14" type="cond" truecount="2" falsecount="0"/>
-      <line num="27" count="1" type="stmt"/>
-      <line num="28" count="1" type="stmt"/>
-      <line num="30" count="13" type="stmt"/>
-      <line num="31" count="13" type="stmt"/>
-      <line num="34" count="13" type="cond" truecount="1" falsecount="1"/>
+      <line num="26" count="22" type="cond" truecount="1" falsecount="1"/>
+      <line num="27" count="0" type="stmt"/>
+      <line num="28" count="0" type="stmt"/>
+      <line num="30" count="22" type="stmt"/>
+      <line num="31" count="22" type="stmt"/>
+      <line num="34" count="22" type="cond" truecount="2" falsecount="0"/>
       <line num="35" count="13" type="stmt"/>
       <line num="36" count="13" type="stmt"/>
-      <line num="37" count="1" type="stmt"/>
-      <line num="40" count="1" type="stmt"/>
-      <line num="45" count="0" type="stmt"/>
-      <line num="46" count="0" type="cond" truecount="0" falsecount="2"/>
-      <line num="47" count="0" type="stmt"/>
-      <line num="48" count="0" type="cond" truecount="0" falsecount="2"/>
-      <line num="49" count="0" type="cond" truecount="0" falsecount="2"/>
+      <line num="37" count="12" type="stmt"/>
+      <line num="40" count="21" type="stmt"/>
+      <line num="45" count="3" type="stmt"/>
+      <line num="46" count="3" type="cond" truecount="2" falsecount="0"/>
+      <line num="47" count="2" type="stmt"/>
+      <line num="48" count="2" type="cond" truecount="1" falsecount="1"/>
+      <line num="49" count="2" type="cond" truecount="1" falsecount="1"/>
       <line num="50" count="0" type="stmt"/>
       <line num="51" count="0" type="stmt"/>
-      <line num="53" count="0" type="stmt"/>
-      <line num="54" count="0" type="stmt"/>
-      <line num="57" count="0" type="cond" truecount="0" falsecount="2"/>
+      <line num="53" count="2" type="stmt"/>
+      <line num="54" count="2" type="stmt"/>
+      <line num="57" count="3" type="cond" truecount="2" falsecount="0"/>
       <line num="61" count="0" type="stmt"/>
       <line num="62" count="0" type="stmt"/>
       <line num="63" count="0" type="stmt"/>
       <line num="71" count="0" type="stmt"/>
       <line num="72" count="0" type="stmt"/>
-      <line num="77" count="0" type="cond" truecount="0" falsecount="2"/>
+      <line num="77" count="3" type="cond" truecount="1" falsecount="1"/>
       <line num="78" count="0" type="stmt"/>
       <line num="79" count="0" type="stmt"/>
-      <line num="82" count="0" type="cond" truecount="0" falsecount="2"/>
-      <line num="83" count="0" type="stmt"/>
-      <line num="84" count="0" type="stmt"/>
-      <line num="87" count="0" type="stmt"/>
-      <line num="88" count="0" type="stmt"/>
-      <line num="91" count="0" type="stmt"/>
-      <line num="92" count="0" type="stmt"/>
-      <line num="93" count="0" type="stmt"/>
-      <line num="95" count="0" type="stmt"/>
-      <line num="98" count="0" type="stmt"/>
-      <line num="100" count="0" type="stmt"/>
-      <line num="103" count="0" type="stmt"/>
-      <line num="104" count="0" type="stmt"/>
+      <line num="82" count="3" type="cond" truecount="2" falsecount="0"/>
+      <line num="83" count="1" type="stmt"/>
+      <line num="84" count="1" type="stmt"/>
+      <line num="87" count="2" type="stmt"/>
+      <line num="88" count="2" type="stmt"/>
+      <line num="91" count="2" type="stmt"/>
+      <line num="92" count="2" type="stmt"/>
+      <line num="93" count="2" type="stmt"/>
+      <line num="95" count="2" type="stmt"/>
+      <line num="98" count="2" type="stmt"/>
+      <line num="100" count="40" type="stmt"/>
+      <line num="103" count="2" type="stmt"/>
+      <line num="104" count="2" type="stmt"/>
       <line num="108" count="0" type="stmt"/>
       <line num="109" count="0" type="stmt"/>
       <line num="112" count="0" type="cond" truecount="0" falsecount="2"/>
@@ -63,20 +63,20 @@
       <line num="116" count="0" type="cond" truecount="0" falsecount="2"/>
       <line num="117" count="0" type="stmt"/>
       <line num="121" count="0" type="stmt"/>
-      <line num="125" count="0" type="stmt"/>
-      <line num="126" count="0" type="stmt"/>
-      <line num="127" count="0" type="stmt"/>
+      <line num="125" count="2" type="stmt"/>
+      <line num="126" count="2" type="stmt"/>
+      <line num="127" count="2" type="stmt"/>
       <line num="128" count="0" type="cond" truecount="0" falsecount="2"/>
       <line num="129" count="0" type="stmt"/>
       <line num="130" count="0" type="stmt"/>
-      <line num="133" count="0" type="stmt"/>
-      <line num="134" count="0" type="stmt"/>
-      <line num="138" count="0" type="stmt"/>
-      <line num="140" count="0" type="stmt"/>
-      <line num="142" count="0" type="cond" truecount="0" falsecount="2"/>
-      <line num="143" count="0" type="stmt"/>
-      <line num="144" count="0" type="stmt"/>
-      <line num="149" count="0" type="stmt"/>
+      <line num="133" count="2" type="stmt"/>
+      <line num="134" count="2" type="stmt"/>
+      <line num="138" count="1" type="stmt"/>
+      <line num="140" count="2" type="stmt"/>
+      <line num="142" count="1" type="cond" truecount="1" falsecount="1"/>
+      <line num="143" count="1" type="stmt"/>
+      <line num="144" count="2" type="stmt"/>
+      <line num="149" count="1" type="stmt"/>
       <line num="152" count="0" type="stmt"/>
       <line num="153" count="0" type="stmt"/>
       <line num="154" count="0" type="stmt"/>
@@ -118,13 +118,13 @@
       <line num="241" count="15" type="stmt"/>
     </file>
     <file name="Piece.js" path="/Users/sekhmet/Documents/Tetris/red-tetris/server/src/models/Piece.js">
-      <metrics statements="26" coveredstatements="26" conditionals="7" coveredconditionals="6" methods="12" coveredmethods="12"/>
+      <metrics statements="26" coveredstatements="26" conditionals="7" coveredconditionals="7" methods="12" coveredmethods="12"/>
       <line num="3" count="3" type="stmt"/>
       <line num="150" count="14" type="cond" truecount="2" falsecount="0"/>
       <line num="151" count="4" type="stmt"/>
       <line num="153" count="10" type="stmt"/>
       <line num="154" count="10" type="stmt"/>
-      <line num="155" count="111" type="stmt"/>
+      <line num="155" count="105" type="stmt"/>
       <line num="161" count="9" type="cond" truecount="2" falsecount="0"/>
       <line num="162" count="1" type="stmt"/>
       <line num="164" count="8" type="stmt"/>
@@ -132,26 +132,26 @@
       <line num="171" count="7" type="stmt"/>
       <line num="175" count="2" type="stmt"/>
       <line num="179" count="8" type="stmt"/>
-      <line num="189" count="2537" type="stmt"/>
-      <line num="190" count="13222" type="stmt"/>
-      <line num="191" count="13222" type="stmt"/>
-      <line num="193" count="2537" type="stmt"/>
-      <line num="197" count="24" type="cond" truecount="2" falsecount="0"/>
+      <line num="189" count="2567" type="stmt"/>
+      <line num="190" count="13402" type="stmt"/>
+      <line num="191" count="13402" type="stmt"/>
+      <line num="193" count="2567" type="stmt"/>
+      <line num="197" count="26" type="cond" truecount="2" falsecount="0"/>
       <line num="198" count="2" type="stmt"/>
-      <line num="200" count="22" type="stmt"/>
-      <line num="201" count="22" type="stmt"/>
-      <line num="202" count="10759" type="stmt"/>
-      <line num="204" count="22" type="stmt"/>
+      <line num="200" count="24" type="stmt"/>
+      <line num="201" count="24" type="stmt"/>
+      <line num="202" count="10969" type="stmt"/>
+      <line num="204" count="24" type="stmt"/>
       <line num="208" count="2" type="stmt"/>
       <line num="209" count="2" type="stmt"/>
       <line num="210" count="2" type="stmt"/>
     </file>
     <file name="Player.js" path="/Users/sekhmet/Documents/Tetris/red-tetris/server/src/models/Player.js">
       <metrics statements="32" coveredstatements="32" conditionals="6" coveredconditionals="6" methods="8" coveredmethods="8"/>
-      <line num="4" count="27" type="stmt"/>
-      <line num="5" count="27" type="stmt"/>
-      <line num="6" count="540" type="stmt"/>
-      <line num="8" count="27" type="stmt"/>
+      <line num="4" count="36" type="stmt"/>
+      <line num="5" count="36" type="stmt"/>
+      <line num="6" count="720" type="stmt"/>
+      <line num="8" count="36" type="stmt"/>
       <line num="11" count="7" type="stmt"/>
       <line num="12" count="140" type="stmt"/>
       <line num="16" count="2" type="stmt"/>
@@ -179,7 +179,7 @@
       <line num="62" count="1" type="stmt"/>
       <line num="66" count="2" type="stmt"/>
       <line num="67" count="2" type="stmt"/>
-      <line num="70" count="27" type="stmt"/>
+      <line num="70" count="36" type="stmt"/>
     </file>
     <file name="SoloGame.js" path="/Users/sekhmet/Documents/Tetris/red-tetris/server/src/models/SoloGame.js">
       <metrics statements="28" coveredstatements="28" conditionals="2" coveredconditionals="2" methods="6" coveredmethods="6"/>

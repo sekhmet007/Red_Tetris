@@ -12,6 +12,7 @@ const mockSocket = {
     on: jest.fn(),
 };
 
+
 const mockIO = {
     to: jest.fn().mockReturnThis(),
     emit: jest.fn(),
@@ -21,8 +22,8 @@ describe('createGame', () => {
 
     it('should create a game with the correct players', () => {
         const game = createGame('roomName', mockIO);
-        const socket1 = { ...mockSocket, id: 'socket1' };
-        const socket2 = { ...mockSocket, id: 'socket2' };
+        const socket1 = { ...mockSocket, id: 'socket1', emit: jest.fn() };
+        const socket2 = { ...mockSocket, id: 'socket2', emit: jest.fn() };
 
         game.addPlayer('Player 1', { id: '1', socket: socket1 });
         game.addPlayer('Player 2', { id: '2', socket: socket2 });

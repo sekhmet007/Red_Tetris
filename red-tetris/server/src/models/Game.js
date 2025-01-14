@@ -18,7 +18,7 @@ function createGame(roomName, io) {
         return typeof name === 'string' && name.trim().length > 0;
     }
 
-    function addPlayer(name, socket) {
+    function addPlayer(name, { id, socket }) {
         if (!isValidName(name)) {
             console.error('Nom de joueur invalide.');
             return null;
