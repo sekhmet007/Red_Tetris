@@ -237,10 +237,14 @@ function createGame(roomName, io) {
         if (activePlayers.length === 1) {
             return activePlayers[0].id;
         }
+        if (activePlayers.length > 1) {
+            return activePlayers[0].id;
+        }
         return null;
     }
 
     return {
+        isValidName,
         mode,
         roomName,
         players,
