@@ -1,4 +1,5 @@
 // src/server/models/Piece.js
+
 const shapes = [
   {
     shape: 'I',
@@ -146,6 +147,9 @@ const shapes = [
 ];
 
 function validateShapes(shapes) {
+  if (!Array.isArray(shapes)) {
+    throw new TypeError('The shapes parameter must be an array.');
+  }
   return shapes.every(({ rotationStates }) =>
     rotationStates.every((state) =>
       state.every((row) => row.length === rotationStates[0][0].length)
@@ -154,8 +158,8 @@ function validateShapes(shapes) {
 }
 
 function createPiece(shape, rotationStates) {
-  if (!validateShapes(([{ shape, rotationStates }]))) {
-    console.error('Erreur : Certaines formes ou rotations sont invalides.');
+  if (!validateShapes(([ { shape, rotationStates } ]))) {
+    throw new Error('Invalid shape detected');
   }
   let currentRotation = 0;
 

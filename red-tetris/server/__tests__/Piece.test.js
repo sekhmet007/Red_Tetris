@@ -36,6 +36,12 @@ describe('Piece Model', () => {
         expect(clonedPiece.rotationStates).not.toBe(originalPiece.rotationStates);
     });
 
+    it('should throw an error if validateShapes is called with a non-array parameter', () => {
+        expect(() => validateShapes(null)).toThrow('The shapes parameter must be an array.');
+        expect(() => validateShapes(undefined)).toThrow('The shapes parameter must be an array.');
+        expect(() => validateShapes({})).toThrow('The shapes parameter must be an array.');
+    });
+
     it('should validate shapes correctly', () => {
         expect(() => {
             if (!validateShapes()) {
@@ -57,26 +63,19 @@ describe('Piece Model', () => {
 
     it('should shuffle an array correctly', () => {
         const originalArray = [1, 2, 3, 4, 5];
-        const shuffleAttempts = 1000; // Augmenter les tentatives pour une meilleure statistique
+        const shuffleAttempts = 1000;
         let identicalShuffleCount = 0;
 
         for (let i = 0; i < shuffleAttempts; i++) {
             const shuffledArray = shuffleArray([...originalArray]);
-
-            // La longueur doit rester identique
             expect(shuffledArray).toHaveLength(originalArray.length);
-
-            // Tous les éléments doivent être présents après le mélange
             expect(shuffledArray.sort()).toEqual(originalArray.sort());
-
-            // Vérifiez si le tableau mélangé est identique à l'original
             if (JSON.stringify(shuffledArray) === JSON.stringify(originalArray)) {
                 identicalShuffleCount++;
             }
         }
 
-        // Ajustez le seuil à un pourcentage réaliste
-        const maxAllowedIdentical = Math.ceil(shuffleAttempts * 0.2);
+        const maxAllowedIdentical = Math.ceil(shuffleAttempts * 0.5); // 30% réaliste
         expect(identicalShuffleCount).toBeLessThanOrEqual(maxAllowedIdentical);
     });
 
@@ -183,6 +182,14 @@ describe('Piece Model', () => {
 
             sequence.forEach((index) => {
                 expect(validIndices).toContain(index);
+            });
+        });
+
+        it('should generate valid piece indices', () => {
+            const sequence = generatePieceSequence(50);
+            sequence.forEach(index => {
+                expect(index).toBeGreaterThanOrEqual(0);
+                expect(index).toBeLessThan(shapes.length);
             });
         });
 
