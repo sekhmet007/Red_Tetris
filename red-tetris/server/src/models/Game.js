@@ -36,6 +36,7 @@ function createGame(roomName, io) {
             player.socket.emit('youAreLeader');
             io.to(roomName).emit('leaderChanged', player.name);
         }
+        // leaderId is already set above if it was null
         return player;
     }
 
@@ -151,6 +152,9 @@ function createGame(roomName, io) {
         console.log('Début de gestion des lignes complétées :');
         console.log(`- Joueur ayant complété : ${sender.name} (ID : ${sender.id}, Socket ID : ${sender.socket.id})`);
         console.log(`- Nombre de lignes complétées : ${lines}`);
+
+        // Mettre à jour le score du joueur
+        sender.updateScore(lines);
 
         // Calcul des lignes de pénalité (au moins 1 ligne)
         const penaltyLines = Math.max(1, lines);

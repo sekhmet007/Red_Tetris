@@ -145,7 +145,7 @@ const shapes = [
   },
 ];
 
-function validateShapes() {
+function validateShapes(shapes) {
   return shapes.every(({ rotationStates }) =>
     rotationStates.every((state) =>
       state.every((row) => row.length === rotationStates[0][0].length)
@@ -153,11 +153,10 @@ function validateShapes() {
   );
 }
 
-if (!validateShapes()) {
-  console.error('Erreur : Certaines formes ou rotations sont invalides.');
-}
-
 function createPiece(shape, rotationStates) {
+  if (!validateShapes(([{ shape, rotationStates }]))) {
+    console.error('Erreur : Certaines formes ou rotations sont invalides.');
+  }
   let currentRotation = 0;
 
   function rotate() {

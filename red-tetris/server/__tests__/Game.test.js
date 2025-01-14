@@ -1,19 +1,23 @@
 import createGame from '../src/models/Game';
-import { describe, it, expect, jest } from '@jest/globals';
+import { describe, it, expect, jest, beforeEach, afterEach, beforeAll } from '@jest/globals';
 
+
+beforeAll(() => {
+    console.error = jest.fn();
+});
+
+const mockSocket = {
+    id: 'socketId',
+    emit: jest.fn(),
+    on: jest.fn(),
+};
+
+const mockIO = {
+    to: jest.fn().mockReturnThis(),
+    emit: jest.fn(),
+};
 
 describe('createGame', () => {
-    const mockSocket = {
-        id: 'socketId',
-        emit: jest.fn(),
-        on: jest.fn(),
-    };
-
-    const mockIO = {
-        to: jest.fn().mockReturnThis(),
-        emit: jest.fn(),
-    };
-
 
     it('should create a game with the correct players', () => {
         const game = createGame('roomName', mockIO);
@@ -29,11 +33,35 @@ describe('createGame', () => {
         });
     });
 
-    it('should not add a player with an invalid name', () => {
-        const game = createGame('roomName', mockIO);
-        const invalidPlayer = game.addPlayer('', mockSocket); // Nom vide
-        expect(invalidPlayer).toBeNull();
-        expect(console.error).toHaveBeenCalledWith('Nom de joueur invalide.');
+    describe('Game', () => {
+        let consoleErrorMock;
+
+        beforeEach(() => {
+            consoleErrorMock = jest.spyOn(console, 'error').mockImplementation(() => { });
+        });
+
+        afterEach(() => {
+            consoleErrorMock.mockRestore();
+        });
+
+        it('should not add a player with an invalid name', () => {
+            const game = createGame('roomName', mockIO);
+            const invalidPlayer = game.addPlayer('', mockSocket); // Nom vide
+            expect(invalidPlayer).toBeNull();
+            expect(console.error).toHaveBeenCalledWith('Nom de joueur invalide.');
+        });
+
+
+        afterEach(() => {
+            consoleErrorMock.mockRestore();
+        });
+
+        it('should not add a player with an invalid name', () => {
+            const game = createGame('roomName', mockIO);
+            const invalidPlayer = game.addPlayer('', mockSocket); // Nom vide
+            expect(invalidPlayer).toBeNull();
+            expect(console.error).toHaveBeenCalledWith('Nom de joueur invalide.');
+        });
     });
 
     it('should not add a player with a duplicate name', () => {
@@ -141,8 +169,135 @@ describe('createGame', () => {
             expect(game.isFinished).toBe(true);
         }
 
-        // Vous pouvez ajouter ici d’autres appels et vérifications
-        // pour couvrir encore plus de logique (lignes 37-234).
+        // Tester le changement de leader
+        game.addPlayer('Valid Name 4', { id: '4', socket: { ...mockSocket, emit: jest.fn() } });
+        expect(game.leaderId).toBe('1');
+        game.removePlayer('1');
+        expect(game.leaderId).toBe('4');
+        game.removePlayer('4');
+        expect(game.leaderId).toBe('3');
+
+        // Tester la suppression d'un joueur
+        game.removePlayer('3');
+        expect(game.players['3']).toBeUndefined();
         expect(true).toBe(true);
+
+        it('should handle player removal and assign new leader correctly', () => {
+            const game = createGame('roomName', mockIO);
+            game.addPlayer('Player 1', { id: '1', socket: { ...mockSocket, id: '1' } });
+            game.addPlayer('Player 2', { id: '2', socket: { ...mockSocket, id: '2' } });
+
+            expect(game.leaderId).toBe('1');
+
+            game.removePlayer('1');
+            expect(game.leaderId).toBe('2');
+
+            game.removePlayer('2');
+            expect(game.leaderId).toBeNull();
+            expect(game.isStarted).toBe(false);
+        });
+
+        it('should assign penalty lines correctly', () => {
+            const game = createGame('roomName', mockIO);
+            game.addPlayer('Player 1', { id: '1', socket: { ...mockSocket, id: '1' } });
+            game.addPlayer('Player 2', { id: '2', socket: { ...mockSocket, id: '2' } });
+
+            game.handleLineCompletion('1', 2);
+            expect(mockIO.emit).toHaveBeenCalledWith('penaltyApplied', expect.any(Object));
+        });
+
+        it('should declare the correct winner', () => {
+            const game = createGame('roomName', mockIO);
+            game.addPlayer('Player 1', { id: '1', socket: { ...mockSocket, id: '1' } });
+            game.addPlayer('Player 2', { id: '2', socket: { ...mockSocket, id: '2' } });
+
+            game.handlePlayerGameOver('2');
+            expect(game.getWinner().id).toBe('1');
+        });
+
+        it('should handle game over correctly', () => {
+            const game = createGame('roomName', mockIO);
+            game.addPlayer('Player 1', { id: '1', socket: { ...mockSocket, id: '1' } });
+            game.addPlayer('Player 2', { id: '2', socket: { ...mockSocket, id: '2' } });
+
+            game.handlePlayerGameOver('1');
+            game.handlePlayerGameOver('2');
+            expect(mockIO.emit).toHaveBeenCalledWith('gameOver', { type: 'draw' });
+        });
+
     });
+
+    describe('removePlayer', () => {
+        let game;
+        let mockIO;
+        let mockSocket;
+
+        beforeEach(() => {
+            mockIO = {
+                to: jest.fn().mockReturnThis(),
+                emit: jest.fn(),
+            };
+            mockSocket = {
+                id: 'mockSocketId',
+                emit: jest.fn(),
+            };
+            game = createGame('roomName', mockIO);
+        });
+
+        it('should remove a player and reassign the leader if the removed player was the leader', () => {
+            // Ajouter deux joueurs
+            const player1 = game.addPlayer('Player 1', { id: '1', socket: { ...mockSocket, id: 'socket1' } });
+            const player2 = game.addPlayer('Player 2', { id: '2', socket: { ...mockSocket, id: 'socket2' } });
+
+            // Vérifier que Player 1 est le leader
+            expect(game.leaderId).toBe(player1.id);
+
+            // Supprimer le leader
+            game.removePlayer(player1.id);
+
+            // Vérifier que Player 2 est maintenant le leader
+            expect(game.leaderId).toBe(player2.id);
+            expect(mockSocket.emit).toHaveBeenCalledWith('youAreLeader');
+            expect(mockIO.to).toHaveBeenCalledWith('roomName');
+            expect(mockIO.emit).toHaveBeenCalledWith('leaderChanged', 'Player 2');
+        });
+
+        it('should suspend the game if the last player is removed', () => {
+            // Ajouter un joueur
+            const player1 = game.addPlayer('Player 1', { id: '1', socket: { ...mockSocket, id: 'socket1' } });
+
+            // Supprimer le joueur
+            game.removePlayer(player1.id);
+
+            // Vérifier que le leader est null et que la partie est suspendue
+            expect(game.leaderId).toBeNull();
+            expect(game.isStarted).toBe(false);
+        });
+
+        it('should remove a player without affecting the leader if the removed player is not the leader', () => {
+            // Ajouter deux joueurs
+            const player1 = game.addPlayer('Player 1', { id: '1', socket: { ...mockSocket, id: 'socket1' } });
+            const player2 = game.addPlayer('Player 2', { id: '2', socket: { ...mockSocket, id: 'socket2' } });
+
+            // Supprimer Player 2
+            game.removePlayer(player2.id);
+
+            // Vérifier que Player 1 est toujours le leader
+            expect(game.leaderId).toBe(player1.id);
+            expect(game.players).not.toHaveProperty(player2.id);
+        });
+
+        it('should call resetGame when all players are removed', () => {
+            // Espionner la méthode resetGame
+            const resetGameSpy = jest.spyOn(game, 'resetGame');
+
+            // Ajouter un joueur et le supprimer
+            const player1 = game.addPlayer('Player 1', { id: '1', socket: { ...mockSocket, id: 'socket1' } });
+            game.removePlayer(player1.id);
+
+            // Vérifier que resetGame est appelé
+            expect(resetGameSpy).toHaveBeenCalled();
+        });
+    });
+
 });
