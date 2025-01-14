@@ -23,16 +23,16 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">47.86% </span>
+                <span class="strong">50% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>56/117</span>
+                <span class='fraction'>59/118</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">45% </span>
+                <span class="strong">52.27% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>18/40</span>
+                <span class='fraction'>23/44</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">46.42% </span>
+                <span class="strong">48.67% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>52/112</span>
+                <span class='fraction'>55/113</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line medium'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -325,7 +325,9 @@
 <a name='L260'></a><a href='#L260'>260</a>
 <a name='L261'></a><a href='#L261'>261</a>
 <a name='L262'></a><a href='#L262'>262</a>
-<a name='L263'></a><a href='#L263'>263</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L263'></a><a href='#L263'>263</a>
+<a name='L264'></a><a href='#L264'>264</a>
+<a name='L265'></a><a href='#L265'>265</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -342,17 +344,17 @@
 <span class="cline-any cline-yes">15x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">24x</span>
+<span class="cline-any cline-yes">25x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">24x</span>
+<span class="cline-any cline-yes">25x</span>
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">22x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">23x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">22x</span>
 <span class="cline-any cline-yes">22x</span>
@@ -363,8 +365,10 @@
 <span class="cline-any cline-yes">13x</span>
 <span class="cline-any cline-yes">12x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">13x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">21x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">22x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -612,9 +616,9 @@ function createGame(roomName, io) {
             console.error('Nom de joueur invalide.');
             return null;
         }
-        <span class="missing-if-branch" title="if path not taken" >I</span>if (Object.values(players).some((p) =&gt; p.name === name)) {
-<span class="cstat-no" title="statement not covered" >            console.error(`Le joueur avec le nom "${name}" existe déjà.`);</span>
-<span class="cstat-no" title="statement not covered" >            return null;</span>
+        if (Object.values(players).some((p) =&gt; p.name === name)) {
+            console.error(`Le joueur avec le nom "${name}" existe déjà.`);
+            return null;
         }
         const player = createPlayer(name, socket, roomName); // Passer roomName ici
         players[player.id] = player;
@@ -622,8 +626,10 @@ function createGame(roomName, io) {
         // Définir un leader si aucun n'est défini
         if (!leaderId) {
             leaderId = player.id;
+        if (player.socket &amp;&amp; typeof player.socket.emit === 'function') {
             player.socket.emit('youAreLeader');
-            io.to(roomName).emit('leaderChanged', player.name);
+        }
+        io.to(roomName).emit('leaderChanged', player.name);
         }
         // leaderId is already set above if it was null
         return player;
@@ -856,7 +862,7 @@ export default createGame;
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-01-14T13:36:47.779Z
+                at 2025-01-14T13:48:28.854Z
             </div>
         <script src="prettify.js"></script>
         <script>

@@ -33,8 +33,10 @@ function createGame(roomName, io) {
         // Définir un leader si aucun n'est défini
         if (!leaderId) {
             leaderId = player.id;
+        if (player.socket && typeof player.socket.emit === 'function') {
             player.socket.emit('youAreLeader');
-            io.to(roomName).emit('leaderChanged', player.name);
+        }
+        io.to(roomName).emit('leaderChanged', player.name);
         }
         // leaderId is already set above if it was null
         return player;
