@@ -190,6 +190,9 @@ function shuffleArray(array) {
 }
 
 function generatePieceSequence(length = 100) {
+  if (length < 0) {
+    throw new Error('Length must be a positive integer');
+  }
   const sequence = [];
   while (sequence.length < length) {
     sequence.push(...shuffleArray(Array.from({ length: shapes.length }, (_, i) => i)));

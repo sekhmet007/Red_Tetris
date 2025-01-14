@@ -168,5 +168,54 @@ describe('Piece Model', () => {
             ])
         ).toThrow('Invalid shape detected');
     });
+
+    describe('generatePieceSequence', () => {
+        it('should generate a sequence of the correct length', () => {
+            const length = 10;
+            const sequence = generatePieceSequence(length);
+            expect(sequence).toHaveLength(length);
+        });
+
+        it('should only contain valid piece indices', () => {
+            const length = 20;
+            const sequence = generatePieceSequence(length);
+            const validIndices = Array.from({ length: shapes.length }, (_, i) => i);
+
+            sequence.forEach((index) => {
+                expect(validIndices).toContain(index);
+            });
+        });
+
+        it('should return an empty sequence if length is 0', () => {
+            const sequence = generatePieceSequence(0);
+            expect(sequence).toEqual([]);
+        });
+
+        it('should throw an error for negative length', () => {
+            expect(() => generatePieceSequence(-1)).toThrow(
+                'Length must be a positive integer'
+            );
+        });
+
+        it('should return a sequence no longer than the requested length', () => {
+            const length = 100;
+            const sequence = generatePieceSequence(length);
+            expect(sequence.length).toBeLessThanOrEqual(length);
+        });
+
+        it('should shuffle the pieces in a random order', () => {
+            const length = 1000; // Larger sequence for better randomness analysis
+            const sequences = Array.from({ length: 10 }, () =>
+                generatePieceSequence(length)
+            );
+            const identicalSequences = sequences.filter(
+                (seq, index, arr) =>
+                    index > 0 && JSON.stringify(seq) === JSON.stringify(arr[index - 1])
+            );
+
+            // Ensure not all sequences are identical
+            expect(identicalSequences.length).toBeLessThan(sequences.length);
+        });
+    });
 });
 
