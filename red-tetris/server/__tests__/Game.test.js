@@ -113,13 +113,64 @@ describe('createGame', () => {
         expect(game.isStarted).toBe(false);
     });
 
-    it('should correctly handle line completions', () => {
+    it('should handle line completions and log relevant information', () => {
         const game = createGame('roomName', mockIO);
-        game.addPlayer('Player 1', { id: '1', socket: mockSocket });
-        game.addPlayer('Player 2', { id: '2', socket: mockSocket });
+        const socket1 = { ...mockSocket, id: 'socket1' };
+        const socket2 = { ...mockSocket, id: 'socket2' };
 
-        game.handleLineCompletion('1', 2);
-        expect(game.players['1'].score).toBeGreaterThan(0);
+        const player1 = game.addPlayer('Player 1', { id: '1', socket: socket1 });
+        const player2 = game.addPlayer('Player 2', { id: '2', socket: socket2 });
+
+        const consoleLogSpy = jest.spyOn(console, 'log');
+        const ioEmitSpy = jest.spyOn(mockIO, 'emit');
+
+        game.handleLineCompletion('socket1', 2);
+
+        // Vérifier les logs
+        expect(consoleLogSpy).toHaveBeenCalledWith('Début de gestion des lignes complétées :');
+        expect(consoleLogSpy).toHaveBeenCalledWith(
+            `- Joueur ayant complété : ${player1.name} (ID : ${player1.id}, Socket ID : ${player1.socket.id})`
+        );
+        expect(consoleLogSpy).toHaveBeenCalledWith(`- Nombre de lignes complétées : 2`);
+        expect(consoleLogSpy).toHaveBeenCalledWith(`- Lignes de pénalité calculées : 2`);
+        expect(consoleLogSpy).toHaveBeenCalledWith(`Envoi de pénalité : 2 lignes de Player 1 à Player 2`);
+
+        // Vérifier la mise à jour du score
+        expect(player1.score).toBeGreaterThan(0);
+
+        // Vérifier l'émission de l'événement de pénalité
+        expect(ioEmitSpy).toHaveBeenCalledWith('penaltyApplied', {
+            lines: 2,
+            fromPlayer: 'Player 1',
+            toPlayer: 'Player 2',
+        });
+
+        // Vérifier l'application des lignes de pénalité
+        expect(player2.receivePenaltyLines).toHaveBeenCalledWith(2);
+
+        consoleLogSpy.mockRestore();
+    });
+
+    it('should log an error if the sender is not found', () => {
+        const game = createGame('roomName', mockIO);
+        const socket1 = { ...mockSocket, id: 'socket1' };
+
+        const consoleErrorSpy = jest.spyOn(console, 'error');
+        const consoleLogSpy = jest.spyOn(console, 'log');
+
+        game.addPlayer('Player 1', { id: '1', socket: socket1 });
+
+        // Appeler la fonction avec un ID de socket inexistant
+        game.handleLineCompletion('invalidSocket', 2);
+
+        // Vérifier que l'erreur est loguée
+        expect(consoleErrorSpy).toHaveBeenCalledWith('Erreur : Aucun joueur trouvé avec le Socket ID invalidSocket');
+        expect(consoleLogSpy).toHaveBeenCalledWith('Liste actuelle des joueurs enregistrés :', [
+            expect.objectContaining({ name: 'Player 1', socketId: 'socket1' }),
+        ]);
+
+        consoleErrorSpy.mockRestore();
+        consoleLogSpy.mockRestore();
     });
 
     it('should assign a new leader when the current leader leaves', () => {
@@ -246,9 +297,12 @@ describe('createGame', () => {
         });
 
         it('should remove a player and reassign the leader if the removed player was the leader', () => {
+            const mockSocket1 = { emit: jest.fn(), on: jest.fn(), id: 'socket1' };
+            const mockSocket2 = { emit: jest.fn(), on: jest.fn(), id: 'socket2' };
+
             // Ajouter deux joueurs
-            const player1 = game.addPlayer('Player 1', { id: '1', socket: { ...mockSocket, id: 'socket1' } });
-            const player2 = game.addPlayer('Player 2', { id: '2', socket: { ...mockSocket, id: 'socket2' } });
+            const player1 = game.addPlayer('Player 1', { id: '1', socket: mockSocket1 });
+            const player2 = game.addPlayer('Player 2', { id: '2', socket: mockSocket2 });
 
             // Vérifier que Player 1 est le leader
             expect(game.leaderId).toBe(player1.id);
@@ -258,11 +312,11 @@ describe('createGame', () => {
 
             // Vérifier que Player 2 est maintenant le leader
             expect(game.leaderId).toBe(player2.id);
-            expect(mockSocket.emit).toHaveBeenCalledWith('youAreLeader');
+            // Notez que nous vérifions player2.socket.emit, et non plus mockSocket1.emit
+            expect(mockSocket2.emit).toHaveBeenCalledWith('youAreLeader');
             expect(mockIO.to).toHaveBeenCalledWith('roomName');
             expect(mockIO.emit).toHaveBeenCalledWith('leaderChanged', 'Player 2');
         });
-
         it('should suspend the game if the last player is removed', () => {
             // Ajouter un joueur
             const player1 = game.addPlayer('Player 1', { id: '1', socket: { ...mockSocket, id: 'socket1' } });

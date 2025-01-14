@@ -59,16 +59,6 @@ function createGame(roomName, io) {
         if (Object.keys(players).length === 0) resetGame();
     }
 
-    function getActiveRooms() {
-        return Object.keys(games)
-            .filter((roomName) => games[roomName].mode === 'multiplayer')
-            .map((roomName) => ({
-                roomName,
-                players: Object.keys(games[roomName].players).length,
-                isStarted: games[roomName].isStarted,
-            }));
-    }
-
     function distributePieces() {
         Object.values(players).forEach((player) =>
             player.sendPieceSequence(pieceSequence)
