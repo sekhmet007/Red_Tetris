@@ -176,7 +176,7 @@ function handleMultiplayerMode(room, playerName, socket) {
     if (game.isStarted) {
         socket.emit('errorMessage', 'La partie a déjà commencé.');
         socket.emit('gameStarted', { pieces: game.pieceSequence });
-        return null; 
+        return null;
     }
 
     // 3) Ajouter le joueur
@@ -459,7 +459,16 @@ io.on('connection', (socket) => {
                     game.removePlayer(player.id);
 
                     if (game.isGameOver()) {
-                        io.to(room).emit('gameOver', { winner: game.getWinner() });
+                        const w = game.getWinner(); // peut être un player, null ou undefined
+                        if (w && w.name) {
+                            io.to(room).emit('gameOver', { winner: w.name, type: 'victory' });
+                        } else if (w === null) {
+                            io.to(room).emit('gameOver', { type: 'draw' });
+                        } else {
+                            // Si w est undefined => 2+ joueurs => ou code imprévu ?
+                            // Mais tu veux quand même informer le client ?
+                            io.to(room).emit('gameOver', { type: 'unknown' });
+                        }
                         delete games[room];
                     } else {
                         if (game.leaderId === socket.id) {

@@ -7,7 +7,6 @@ const socket = io('http://localhost:3000', {
   transports: ['websocket', 'polling'],
 });
 
-
 const LARGEUR_GRILLE = 10;
 const HAUTEUR_GRILLE = 20;
 const X_INITIAL = 3;
@@ -763,11 +762,12 @@ function TetrisGame() {
         });
       };
 
-      const handleGameOver = ({ winner, type }) => {
+      const handleGameOver = ({ winner, type } = {}) => {
+        console.log('handleGameOver avec winner=', winner, 'type=', type);
         setGameOverState({
           isGameOver: true,
-          winner,
-          type,
+          winner: winner || null,
+          type: type || 'unknown',
         });
         setIsGameStarted(false);
       };
@@ -792,7 +792,19 @@ function TetrisGame() {
       });
       socket.on('youAreLeader', () => setIsLeader(true));
       socket.on('roomsUpdated', (updatedRooms) => setRooms(updatedRooms));
-      socket.on('gameOver', handleGameOver);
+      socket.on('gameOver', (payload) => {
+        if (!payload) {
+          console.warn('[DEBUG] Reçu un "gameOver" vide ou undefined !');
+          return;
+        }
+        const { winner, type } = payload;
+        // Si type est aussi absent, on peut faire:
+        if (!('type' in payload)) {
+          console.warn('[DEBUG] Reçu un "gameOver" sans "type" !', payload);
+        }
+
+        handleGameOver({ winner, type });
+      });
       socket.on('gameReset', handleGameReset);
 
       return () => {
@@ -928,6 +940,7 @@ function TetrisGame() {
     room,
     mode,
     numForme,
+    realUuid,
   ]);
 
   useEffect(() => {
