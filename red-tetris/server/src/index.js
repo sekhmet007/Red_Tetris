@@ -186,6 +186,10 @@ function handleMultiplayerMode(room, playerName, socket) {
         return null;
     }
 
+    socket.emit('playerCreated', {
+        realUuid: player.id
+    });
+
     // 4) Rejoindre la room Socket.IO
     socket.join(room);
 
@@ -423,8 +427,10 @@ io.on('connection', (socket) => {
     });
 
     socket.on('playerLost', ({ room, playerId }) => {
+        console.log(`[playerLost] Reçu du joueur: ${playerId} dans la room: ${room}`);
         const game = games[room];
         if (game && game.mode === 'multiplayer') {
+            console.log("[playerLost] Appel de game.handlePlayerGameOver");
             game.handlePlayerGameOver(playerId);
             // handlePlayerGameOver va décider si c’est match nul, un vainqueur, ou rien.
         }
@@ -435,13 +441,6 @@ io.on('connection', (socket) => {
         if (game) {
             if (game.mode === 'solo') {
                 game.handleGameOver();
-            } else {
-                game.handlePlayerGameOver(socket.id);
-                const winnerId = game.checkGameOver();
-                if (winnerId) {
-                    io.to(room).emit('gameOver', { winner: game.players[winnerId].name });
-                    game.resetGame();
-                }
             }
         }
     });

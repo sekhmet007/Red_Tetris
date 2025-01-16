@@ -7,6 +7,7 @@ const socket = io('http://localhost:3000', {
   transports: ['websocket', 'polling'],
 });
 
+
 const LARGEUR_GRILLE = 10;
 const HAUTEUR_GRILLE = 20;
 const X_INITIAL = 3;
@@ -168,6 +169,7 @@ function TetrisGame() {
   const [pieceIndex, setPieceIndex] = useState(0);
   const [isGameStarted, setIsGameStarted] = useState(false);
   const [isReady, setIsReady] = useState(false);
+  const [realUuid, setRealUuid] = useState(null);
 
   const params = new URLSearchParams(window.location.search);
   const [room, setRoom] = useState(() => params.get('room'));
@@ -657,8 +659,9 @@ function TetrisGame() {
         type: mode === 'solo' ? 'solo' : 'multiplayer',
       }));
       if (mode === 'multiplayer') {
+        console.log('collision(0,0) → je meurs localement');
         //socket.emit('gameOver', { room, playerId: socket.id });
-        socket.emit('playerLost', { room, playerId: socket.id });
+        socket.emit('playerLost', { room, playerId: realUuid });
       }
     }
   };
@@ -686,6 +689,20 @@ function TetrisGame() {
     });
     setIsGameStarted(false);
   }, [mode]);
+
+  useEffect(() => {
+    socket.on('playerCreated', ({ realUuid }) => {
+      console.log(
+        "[DEBUG] J'ai reçu mon vrai UUID depuis le serveur :",
+        realUuid
+      );
+      setRealUuid(realUuid); // un state React par exemple
+    });
+
+    return () => {
+      socket.off('playerCreated');
+    };
+  }, []);
 
   useEffect(() => {
     // Génération automatique du nom du joueur si absent
@@ -874,6 +891,9 @@ function TetrisGame() {
         if (numForme === null) return;
 
         if (collision(0, 1)) {
+          console.log(
+            '[DEBUG] collision(0,1) => fixerForme + check game over...'
+          );
           fixerForme();
           setFormX(X_INITIAL);
           setFormY(Y_INITIAL);
@@ -881,8 +901,9 @@ function TetrisGame() {
 
           // Vérification de collision pour game over
           if (collision(0, 0)) {
+            console.log("[DEBUG] collision(0,0) => j'envoie playerLost !");
             if (mode === 'multiplayer') {
-              //socket.emit('gameOver', { room, playerId: socket.id });
+              socket.emit('playerLost', { room, playerId: realUuid });
             }
             setGameOverState((prev) => ({
               ...prev,
@@ -943,7 +964,7 @@ function TetrisGame() {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [collision, rotation, numForme, gameOverState.isGameOver, hardDrop]);
+  }, [collision, rotation, numForme, gameOverState.isGameOver]);
 
   return (
     <div className="tetris-game">

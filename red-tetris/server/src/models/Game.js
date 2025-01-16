@@ -2,6 +2,7 @@
 import createPlayer from './Player.js';
 import { generatePieceSequence } from './Piece.js';
 
+
 function createGame(roomName, io) {
 
     if (!io) {
@@ -97,19 +98,18 @@ function createGame(roomName, io) {
     }
 
     function getWinner() {
-        const activePlayers = Object.values(players).filter(
-            (player) => !player.isGameOver
-        );
+        const activePlayers = Object.values(players).filter(p => !p.isGameOver);
+        console.log("→ getWinner, activePlayers:", activePlayers.map(p => p.name));
 
         if (activePlayers.length === 1) {
-            return activePlayers[0]; // Le joueur restant est le gagnant
+            console.log("getWinner => 1 actif =>", activePlayers[0].name);
+            return activePlayers[0];
         }
-
         if (activePlayers.length === 0) {
-            return null; // Aucun gagnant (match nul)
+            console.log("getWinner => 0 actif => null");
+            return null;
         }
-
-        // Si aucun état de fin n'est détecté, pas encore de gagnant
+        console.log("getWinner => >=2 actifs => undefined");
         return undefined;
     }
 
@@ -178,37 +178,36 @@ function createGame(roomName, io) {
     }
 
     function handlePlayerGameOver(playerId) {
+        console.log(`→ handlePlayerGameOver pour le joueur ${playerId}`);
         const player = players[playerId];
         if (!player) {
-            console.error(`Le joueur avec l'ID ${playerId} n'existe pas.`);
+            console.log("handlePlayerGameOver: joueur inexistant, on arrête là");
             return;
         }
-
-        // Marquer le joueur comme ayant perdu
         player.isGameOver = true;
+        console.log(`handlePlayerGameOver: isGameOver = true pour le joueur ${player.name}`);
         player.notifyEndGame();
 
-        const possibleWinner = getWinner(); // ≤-----------
+        const possibleWinner = getWinner();
+        console.log(`getWinner() a renvoyé:`, possibleWinner);
 
         if (possibleWinner === null) {
-            // ⇒ activePlayers.length === 0
-            console.log('Tous les joueurs ont perdu en même temps. Match nul.');
+            console.log("→ 0 joueurs restants => match nul");
             io.to(roomName).emit('gameOver', { type: 'draw' });
             resetGame();
-        } else if (possibleWinner !== undefined) {
-            // ⇒ 1 joueur restant
-            console.log(`Le joueur ${possibleWinner.name} est déclaré vainqueur.`);
+        } else if (possibleWinner) {
+            console.log(`→ 1 joueur restant => c'est ${possibleWinner.name} le vainqueur !`);
             io.to(roomName).emit('gameOver', {
                 winner: possibleWinner.name,
                 type: 'victory',
             });
             resetGame();
         } else {
-            // ⇒ undefined : il reste 2 joueurs ou plus → la partie continue
             const activePlayers = Object.values(players).filter((p) => !p.isGameOver);
             console.log(`La partie continue avec ${activePlayers.length} joueur(s) actif(s).`);
         }
     }
+
 
     function isGameOver() {
         const activePlayers = Object.values(players).filter(

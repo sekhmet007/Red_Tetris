@@ -9,7 +9,7 @@ function createPlayer(name, socket, roomName) {
 
     function setRoomName(newRoomName) {
         roomName = newRoomName;
-      }
+    }
     function reset() {
         console.log(`Réinitialisation du terrain pour le joueur ${name} (ID : ${id})`);
         terrain.forEach(row => row.fill(0));
@@ -35,33 +35,33 @@ function createPlayer(name, socket, roomName) {
 
     function receivePenaltyLines(numLines) {
         console.log(`${name} reçoit ${numLines} lignes de pénalité`);
-        
+
         if (numLines <= 0) {
             console.log('Pas de lignes de pénalité à appliquer');
             return;
         }
-    
+
         // Créer un nouveau terrain avec les pénalités
         const newTerrain = [...terrain];
-        
+
         // Supprimer les lignes du haut
         newTerrain.splice(0, numLines);
-        
+
         // Ajouter les lignes de pénalité en bas
         for (let i = 0; i < numLines; i++) {
             newTerrain.push(Array(10).fill(-1));  // Ligne indestructible
         }
-    
+
         // Mettre à jour le terrain
         terrain.length = 0;
         terrain.push(...newTerrain);
-        
+
         // Notifier le client
         socket.emit('penaltyApplied', {
             lines: numLines,
             terrain: newTerrain
         });
-    
+
         return terrain;
     }
 
