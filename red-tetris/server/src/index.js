@@ -165,35 +165,38 @@ function handleSoloMode(room, playerName, socket) {
 }
 
 function handleMultiplayerMode(room, playerName, socket) {
+    // 1) Création ou récupération du game
     if (!games[room]) {
         console.log('Création du jeu pour la room :', room);
         games[room] = { ...createGame(room, io), mode: 'multiplayer' };
     }
-
     const game = games[room];
 
+    // 2) Vérifier si la partie est déjà démarrée
     if (game.isStarted) {
         socket.emit('errorMessage', 'La partie a déjà commencé.');
         socket.emit('gameStarted', { pieces: game.pieceSequence });
-        return;
+        return null; 
     }
 
-    const player = game.addPlayer(playerName, socket);
+    // 3) Ajouter le joueur
+    const player = game.addPlayer(playerName, { id: socket.id, socket });
     if (!player) {
         socket.emit('errorMessage', 'Room pleine ou nom déjà pris.');
-        return;
+        return null;
     }
 
-    socket.join(room);  // S'assurer que le socket rejoint la room
+    // 4) Rejoindre la room Socket.IO
+    socket.join(room);
 
-    // Définir le premier joueur comme leader si aucun leader n'existe
+    // 5) Définir le leader si besoin
     if (!game.leaderId) {
         game.leaderId = socket.id;
         console.log(`Nouveau leader défini: ${playerName} (${socket.id})`);
         socket.emit('youAreLeader');
     }
 
-    // Informer tous les joueurs de la room de la mise à jour
+    // 6) Mettre à jour la liste des joueurs pour tous
     io.to(room).emit('playerListUpdated', {
         players: Object.values(game.players).map((p) => ({
             name: p.name,
@@ -201,22 +204,25 @@ function handleMultiplayerMode(room, playerName, socket) {
         })),
     });
 
-    // Annoncer le statut de la room
+    // 7) **Annoncer le statut de la room** (le fameux code que tu voulais exécuter après)
     const numPlayers = Object.keys(game.players).length;
     if (numPlayers === 1) {
         socket.emit('waitingForPlayer', "En attente d'un autre joueur...");
     } else if (numPlayers >= 2) {
-        // Informer le leader qu'il peut démarrer la partie
+        // Informer le leader qu’il peut démarrer
         if (socket.id === game.leaderId) {
             socket.emit('canStartGame', true);
         }
-        // Informer les autres joueurs qu'ils attendent le leader
+        // Informer les autres joueurs qu’ils attendent le leader
         Object.values(game.players).forEach((p) => {
             if (p.socket.id !== game.leaderId) {
                 p.socket.emit('waitingForLeader');
             }
         });
     }
+
+    // 8) **Enfin**, retourner le player pour que l'appelant puisse l’exploiter
+    return player;
 }
 
 io.on('connection', (socket) => {
@@ -236,27 +242,27 @@ io.on('connection', (socket) => {
                 socket.emit('errorMessage', 'Nom de salle invalide.');
                 return;
             }
-    
+
             // Validation du nom de joueur
             if (!isValidPlayerName(playerName)) {
                 socket.emit('errorMessage', 'Nom de joueur invalide.');
                 return;
             }
-    
+
             if (mode === 'solo') {
                 // Gérer le mode solo
                 console.log(`Joueur ${playerName} rejoint le mode solo dans la salle ${room}.`);
                 handleSoloMode(room, playerName, socket);
             } else if (mode === 'multiplayer') {
-                handleMultiplayerMode(room, playerName, socket);
+                //handleMultiplayerMode(room, playerName, socket);
                 console.log(`Joueur ${playerName} rejoint le mode multijoueur dans la salle ${room}.`);
-                
+
                 const player = handleMultiplayerMode(room, playerName, socket); // Créer et associer le joueur
                 if (!player) {
                     socket.emit('errorMessage', 'Erreur lors de la création du joueur multijoueur.');
                     return;
                 }
-    
+
                 // Associer le joueur à la salle
                 player.setRoomName(room);
                 socket.join(room);
@@ -268,7 +274,7 @@ io.on('connection', (socket) => {
             console.error('Erreur dans joinRoom:', error.message);
             socket.emit('errorMessage', 'Une erreur est survenue. Veuillez réessayer.');
         }
-    }); 
+    });
 
     socket.on('leaveRoom', ({ room, playerName }) => {
         const game = games[room];
@@ -276,13 +282,13 @@ io.on('connection', (socket) => {
             console.error(`La room ${room} n'existe pas.`);
             return;
         }
-    
+
         // Retirer le joueur de la room
         const player = game.getPlayerBySocketId(socket.id);
         if (player) {
             game.removePlayer(player.id);
         }
-    
+
         // Notifier tous les clients des rooms mises à jour
         const activeRooms = Object.keys(games)
             .filter((roomName) => games[roomName].mode === 'multiplayer')
@@ -291,12 +297,12 @@ io.on('connection', (socket) => {
                 players: Object.keys(games[roomName].players).length,
                 isStarted: games[roomName].isStarted,
             }));
-    
+
         io.emit('roomsUpdated', activeRooms);
-    
+
         console.log(`Le joueur ${playerName} a quitté la room ${room}.`);
-    }); 
-    
+    });
+
     socket.on('getActiveRooms', (_, callback) => {
         const activeRooms = Object.keys(games)
             .filter((roomName) => games[roomName].mode === 'multiplayer')
@@ -306,7 +312,7 @@ io.on('connection', (socket) => {
                 isStarted: games[roomName].isStarted,
             }));
         callback(activeRooms);
-    });    
+    });
 
     socket.on('playerReady', ({ room }) => {
         const game = games[room];
@@ -325,34 +331,34 @@ io.on('connection', (socket) => {
     socket.on('startGame', ({ room }) => {
         console.log('Réception de la demande startGame:', { room });
         const game = games[room];
-        
+
         if (!game) {
             console.error('Jeu non trouvé pour la room:', room);
             return;
         }
-        
+
         if (game.mode !== 'solo') {
             console.error('Mode de jeu incorrect:', game.mode);
             return;
         }
-    
+
         if (game.isStarted) {
             console.log('La partie solo est déjà démarrée');
             socket.emit('errorMessage', 'La partie solo a déjà commencé.');
             return;
         }
-    
+
         console.log('Démarrage de la partie solo...');
         game.isStarted = true;
         const pieceSequence = generatePieceSequence();
         game.pieceSequence = pieceSequence;
-    
+
         console.log('Envoi des pièces initiales...');
         socket.emit('gameStarted', {
             pieces: pieceSequence,
             initialGrid: Array.from({ length: 20 }, () => Array(10).fill(0)),
         });
-    
+
         console.log('Partie solo démarrée avec succès');
     });
 
@@ -363,47 +369,47 @@ io.on('connection', (socket) => {
             if (callback) callback({ error: 'Room introuvable ou mode incorrect.' });
             return;
         }
-    
+
         if (game.isStarted) {
             console.log(`La partie dans ${room} a déjà commencé.`);
             if (callback) callback({ error: 'La partie multijoueur a déjà commencé.' });
             return;
         }
-    
+
         if (Object.keys(game.players).length < 2) {
             console.log(`Pas assez de joueurs dans la room ${room}.`);
             if (callback) callback({ error: 'Il faut au moins deux joueurs pour démarrer !' });
             return;
         }
-    
+
         if (socket.id !== game.leaderId) {
             console.log(`Socket ${socket.id} n'est pas le leader pour la room ${room}.`);
             if (callback) callback({ error: 'Seul le leader peut démarrer la partie.' });
             return;
         }
-    
+
         game.isStarted = true;
         const pieceSequence = generatePieceSequence();
         game.pieceSequence = pieceSequence;
-    
+
         console.log(`Avant émission de l'événement gameStarted pour la room ${room}.`);
-    
+
         io.to(room).emit('gameStarted', {
             pieces: pieceSequence,
             initialGrid: Array.from({ length: 20 }, () => Array(10).fill(0)),
         });
-    
+
         console.log(`Événement gameStarted émis pour la room ${room} avec les pièces :`, pieceSequence);
-    
+
         if (callback) callback({ success: true });
-    });    
+    });
 
     socket.on('lineComplete', ({ room, lines }) => {
         console.log(`Réception de lineComplete - Room: ${room}, Lines: ${lines}`);
         try {
             const game = games[room];
             if (!game) return;
-    
+
             if (game.mode === 'solo') {
                 game.handleLineCompletion(lines);
             } else if (game.mode === 'multiplayer') {
@@ -413,6 +419,14 @@ io.on('connection', (socket) => {
         } catch (error) {
             console.error('Erreur dans lineComplete:', error);
             socket.emit('error', { message: 'Une erreur est survenue' });
+        }
+    });
+
+    socket.on('playerLost', ({ room, playerId }) => {
+        const game = games[room];
+        if (game && game.mode === 'multiplayer') {
+            game.handlePlayerGameOver(playerId);
+            // handlePlayerGameOver va décider si c’est match nul, un vainqueur, ou rien.
         }
     });
 
@@ -435,7 +449,7 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {
         for (const room in games) {
             const game = games[room];
-    
+
             if (game.mode === 'solo' && game.player?.socket.id === socket.id) {
                 console.log(`Suppression de la room solo : ${room}`);
                 delete games[room];
@@ -444,7 +458,7 @@ io.on('connection', (socket) => {
                 if (player) {
                     console.log(`Joueur déconnecté : ${player.name} dans la room ${room}`);
                     game.removePlayer(player.id);
-    
+
                     if (game.isGameOver()) {
                         io.to(room).emit('gameOver', { winner: game.getWinner() });
                         delete games[room];
@@ -461,7 +475,7 @@ io.on('connection', (socket) => {
                 }
             }
         }
-    });          
+    });
 });
 
 server.listen(PORT, () => {

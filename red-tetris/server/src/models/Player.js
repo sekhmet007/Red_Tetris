@@ -7,6 +7,9 @@ function createPlayer(name, socket, roomName) {
 
     console.log(`Création du joueur ${name} (ID : ${id}) dans la room ${roomName}`);
 
+    function setRoomName(newRoomName) {
+        roomName = newRoomName;
+      }
     function reset() {
         console.log(`Réinitialisation du terrain pour le joueur ${name} (ID : ${id})`);
         terrain.forEach(row => row.fill(0));
@@ -78,7 +81,8 @@ function createPlayer(name, socket, roomName) {
         updateScore,
         sendPieceSequence,
         notifyEndGame,
-        receivePenaltyLines
+        receivePenaltyLines,
+        setRoomName
     };
 }
 

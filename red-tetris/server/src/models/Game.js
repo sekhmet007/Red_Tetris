@@ -33,10 +33,10 @@ function createGame(roomName, io) {
         // Définir un leader si aucun n'est défini
         if (!leaderId) {
             leaderId = player.id;
-        if (player.socket && typeof player.socket.emit === 'function') {
-            player.socket.emit('youAreLeader');
-        }
-        io.to(roomName).emit('leaderChanged', player.name);
+            if (player.socket && typeof player.socket.emit === 'function') {
+                player.socket.emit('youAreLeader');
+            }
+            io.to(roomName).emit('leaderChanged', player.name);
         }
         // leaderId is already set above if it was null
         return player;
@@ -188,27 +188,24 @@ function createGame(roomName, io) {
         player.isGameOver = true;
         player.notifyEndGame();
 
-        // Vérifier s'il reste des joueurs actifs
-        const activePlayers = Object.values(players).filter((p) => !p.isGameOver);
+        const possibleWinner = getWinner(); // ≤-----------
 
-        if (activePlayers.length === 1) {
-            // Déclarer le dernier joueur comme vainqueur
-            const winner = activePlayers[0];
-            console.log(`Le joueur ${winner.name} est déclaré vainqueur.`);
+        if (possibleWinner === null) {
+            // ⇒ activePlayers.length === 0
+            console.log('Tous les joueurs ont perdu en même temps. Match nul.');
+            io.to(roomName).emit('gameOver', { type: 'draw' });
+            resetGame();
+        } else if (possibleWinner !== undefined) {
+            // ⇒ 1 joueur restant
+            console.log(`Le joueur ${possibleWinner.name} est déclaré vainqueur.`);
             io.to(roomName).emit('gameOver', {
-                winner: winner.name,
+                winner: possibleWinner.name,
                 type: 'victory',
             });
             resetGame();
-        } else if (activePlayers.length === 0) {
-            // Match nul si tous les joueurs perdent en même temps
-            console.log('Tous les joueurs ont perdu en même temps. Match nul.');
-            io.to(roomName).emit('gameOver', {
-                type: 'draw',
-            });
-            resetGame();
         } else {
-            // Continuer la partie si plusieurs joueurs sont encore actifs
+            // ⇒ undefined : il reste 2 joueurs ou plus → la partie continue
+            const activePlayers = Object.values(players).filter((p) => !p.isGameOver);
             console.log(`La partie continue avec ${activePlayers.length} joueur(s) actif(s).`);
         }
     }

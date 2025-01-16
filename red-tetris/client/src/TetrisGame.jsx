@@ -657,7 +657,8 @@ function TetrisGame() {
         type: mode === 'solo' ? 'solo' : 'multiplayer',
       }));
       if (mode === 'multiplayer') {
-        socket.emit('gameOver', { room, playerId: socket.id });
+        //socket.emit('gameOver', { room, playerId: socket.id });
+        socket.emit('playerLost', { room, playerId: socket.id });
       }
     }
   };
@@ -860,8 +861,6 @@ function TetrisGame() {
     if (gameOverState.isGameOver) {
       if (mode === 'solo') {
         socket.emit('gameOver', { room });
-      } else if (mode === 'multiplayer') {
-        socket.emit('gameOver', { room, playerId: socket.id });
       }
     }
   }, [gameOverState.isGameOver, mode, room]);
@@ -883,7 +882,7 @@ function TetrisGame() {
           // Vérification de collision pour game over
           if (collision(0, 0)) {
             if (mode === 'multiplayer') {
-              socket.emit('gameOver', { room, playerId: socket.id });
+              //socket.emit('gameOver', { room, playerId: socket.id });
             }
             setGameOverState((prev) => ({
               ...prev,
@@ -944,7 +943,7 @@ function TetrisGame() {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [collision, rotation, numForme, gameOverState.isGameOver]);
+  }, [collision, rotation, numForme, gameOverState.isGameOver, hardDrop]);
 
   return (
     <div className="tetris-game">
