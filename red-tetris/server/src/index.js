@@ -464,10 +464,6 @@ io.on('connection', (socket) => {
                             io.to(room).emit('gameOver', { winner: w.name, type: 'victory' });
                         } else if (w === null) {
                             io.to(room).emit('gameOver', { type: 'draw' });
-                        } else {
-                            // Si w est undefined => 2+ joueurs => ou code imprévu ?
-                            // Mais tu veux quand même informer le client ?
-                            io.to(room).emit('gameOver', { type: 'unknown' });
                         }
                         delete games[room];
                     } else {

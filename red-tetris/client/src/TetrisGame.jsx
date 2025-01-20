@@ -659,7 +659,6 @@ function TetrisGame() {
       }));
       if (mode === 'multiplayer') {
         console.log('collision(0,0) → je meurs localement');
-        //socket.emit('gameOver', { room, playerId: socket.id });
         socket.emit('playerLost', { room, playerId: realUuid });
       }
     }
@@ -778,11 +777,20 @@ function TetrisGame() {
           winner: null,
           type: null,
         });
+        setIsGameStarted(false);
         setGrille(
           Array.from({ length: HAUTEUR_GRILLE }, () =>
             Array(LARGEUR_GRILLE).fill(0)
           )
         );
+        if (mode === 'multiplayer') {
+          fetch('http://localhost:3000/rooms')
+            .then((response) => response.json())
+            .then((updatedRooms) => setRooms(updatedRooms))
+            .catch((error) =>
+              console.error('Erreur lors de la mise à jour des rooms :', error)
+            );
+        }
       };
 
       socket.on('gameStarted', handleGameStarted);
@@ -930,7 +938,10 @@ function TetrisGame() {
       fastDrop ? 50 : delay
     );
 
-    return () => clearInterval(interval);
+    return () => {
+      console.log('Nettoyage de la boucle de descente automatique.');
+      clearInterval(interval);
+    };
   }, [
     collision,
     fixerForme,
@@ -942,6 +953,38 @@ function TetrisGame() {
     numForme,
     realUuid,
   ]);
+
+  useEffect(() => {
+    if (gameOverState.isGameOver) {
+      console.log('Fin de la partie, réinitialisation du jeu...');
+
+      // Réinitialise les états nécessaires ici
+      setGrille(
+        Array.from({ length: HAUTEUR_GRILLE }, () =>
+          Array(LARGEUR_GRILLE).fill(0)
+        )
+      );
+      setIsGameStarted(false);
+      setNumForme(null);
+      setFormX(X_INITIAL);
+      setFormY(Y_INITIAL);
+      setRotation(0);
+      setPieceIndex(0);
+    }
+  }, [gameOverState.isGameOver]);
+
+  useEffect(() => {
+    const handleRoomsUpdated = (updatedRooms) => {
+      console.log('Liste des rooms mise à jour :', updatedRooms);
+      setRooms(updatedRooms);
+    };
+
+    socket.on('roomsUpdated', handleRoomsUpdated);
+
+    return () => {
+      socket.off('roomsUpdated', handleRoomsUpdated);
+    };
+  }, []);
 
   useEffect(() => {
     // Gestion des événements clavier pour le contrôle des pièces

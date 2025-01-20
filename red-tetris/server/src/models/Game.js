@@ -198,7 +198,7 @@ function createGame(roomName, io) {
         } else if (possibleWinner) {
             console.log(`→ 1 joueur restant => c'est ${possibleWinner.name} le vainqueur !`);
             io.to(roomName).emit('gameOver', {
-                winner: possibleWinner.name,
+                winner: possibleWinner?.name || null,
                 type: 'victory',
             });
             resetGame();
