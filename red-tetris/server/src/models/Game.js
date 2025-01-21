@@ -206,12 +206,12 @@ function createGame(roomName, io) {
             // Plus aucun joueur en jeu => match nul
             console.log("→ 0 joueurs restants => match nul");
             endGame(null, 'draw');
-            resetGame();
+           // resetGame();
         } else if (possibleWinner) {
             // 1 joueur restant => c’est le vainqueur
             console.log(`→ 1 joueur restant => c'est ${possibleWinner.name} le vainqueur !`);
             endGame(possibleWinner?.name || null, 'victory');
-            resetGame();
+            //resetGame();
         } else {
             // La partie continue : on ne fait rien
             const activePlayers = Object.values(players).filter((p) => !p.isGameOver);
