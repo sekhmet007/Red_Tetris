@@ -800,7 +800,7 @@ function TetrisGame() {
       });
       socket.on('youAreLeader', () => setIsLeader(true));
       socket.on('roomsUpdated', (updatedRooms) => setRooms(updatedRooms));
-      socket.on('gameOver', (payload) => {
+      /*socket.on('gameOver', (payload) => {
         if (!payload) {
           console.warn('[DEBUG] Reçu un "gameOver" vide ou undefined !');
           return;
@@ -812,7 +812,7 @@ function TetrisGame() {
         }
 
         handleGameOver({ winner, type });
-      });
+      });*/
       socket.on('gameReset', handleGameReset);
 
       return () => {
@@ -820,7 +820,7 @@ function TetrisGame() {
         socket.off('penaltyApplied', handlePenalty);
         socket.off('youAreLeader');
         socket.off('roomsUpdated');
-        socket.off('gameOver');
+       // socket.off('gameOver');
         socket.off('gameReset');
       };
     }
@@ -919,19 +919,29 @@ function TetrisGame() {
           setFormY(Y_INITIAL);
           setRotation(0);
 
-          // Vérification de collision pour game over
+          // Vérification supplémentaire pour le game over potentiel
           if (collision(0, 0)) {
-            console.log("[DEBUG] collision(0,0) => j'envoie playerLost !");
             if (mode === 'multiplayer') {
+              // MULTI :
+              // Ne pas déclencher localement le game over ;
+              // on informe seulement le serveur
+              console.log("Joueur local => j'envoie 'playerLost'");
               socket.emit('playerLost', { room, playerId: realUuid });
+            } else if (mode === 'solo') {
+              // SOLO :
+              // On gère directement la fin de partie côté client
+              console.log(
+                'Fin de partie en SOLO => on met le gameOverState à true'
+              );
+              setGameOverState((prev) => ({
+                ...prev,
+                isGameOver: true,
+                type: 'solo',
+              }));
             }
-            setGameOverState((prev) => ({
-              ...prev,
-              isGameOver: true,
-              type: mode === 'solo' ? 'solo' : 'multiplayer',
-            }));
           }
         } else {
+          // Sinon, on fait descendre la pièce
           setFormY((prev) => prev + 1);
         }
       },
@@ -953,6 +963,24 @@ function TetrisGame() {
     numForme,
     realUuid,
   ]);
+
+  // Réception du gameOver envoyé par le serveur
+  useEffect(() => {
+    function handleGameOver(payload) {
+      if (!payload) return;
+      const { winner, type } = payload;
+      setGameOverState({
+        isGameOver: true,
+        winner,
+        type,
+      });
+      // ICI, on N'APPELLE PAS "setMode(null)" ni "setIsGameStarted(false)" tout de suite.
+      // On attend le choix du joueur pour "Rejouer" ou "Quitter".
+    }
+
+    socket.on('gameOver', handleGameOver);
+    return () => socket.off('gameOver', handleGameOver);
+  }, [socket]);
 
   useEffect(() => {
     if (gameOverState.isGameOver) {
@@ -990,6 +1018,7 @@ function TetrisGame() {
     // Gestion des événements clavier pour le contrôle des pièces
     const handleKeyDown = (event) => {
       if (gameOverState.isGameOver) return;
+      if (numForme == null || !formes[numForme]) return;
 
       if (event.key === 'ArrowLeft' && !collision(-1, 0)) {
         setFormX((prev) => prev - 1);

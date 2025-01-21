@@ -452,19 +452,26 @@ io.on('connection', (socket) => {
             if (game.mode === 'solo' && game.player?.socket.id === socket.id) {
                 console.log(`Suppression de la room solo : ${room}`);
                 delete games[room];
-            } else if (game.mode === 'multiplayer') {
+            } else if (game && game.mode === 'multiplayer') {
                 const player = game.getPlayerBySocketId(socket.id);
                 if (player) {
                     console.log(`Joueur déconnecté : ${player.name} dans la room ${room}`);
                     game.removePlayer(player.id);
 
+                    // ICI on vérifie s’il n’y a plus de joueurs en jeu
                     if (game.isGameOver()) {
                         const w = game.getWinner(); // peut être un player, null ou undefined
-                        if (w && w.name) {
-                            io.to(room).emit('gameOver', { winner: w.name, type: 'victory' });
-                        } else if (w === null) {
-                            io.to(room).emit('gameOver', { type: 'draw' });
+                        // AVANT : on émettait gameOver direct
+                        // REMPLACER PAR :
+                        if (!game.gameTerminated) {
+                            if (w && w.name) {
+                                game.handlePlayerGameOver(w.id);
+                            } else {
+                                game.handlePlayerGameOver(player.id);
+                                // ou un handleGameOver() custom
+                            }
                         }
+                        // Puis on supprime le game
                         delete games[room];
                     } else {
                         if (game.leaderId === socket.id) {

@@ -15,6 +15,8 @@ function createGame(roomName, io) {
     let isStarted = false;
     let leaderId = null;
 
+    let gameTerminated = false;
+
     function isValidName(name) {
         return typeof name === 'string' && name.trim().length > 0;
     }
@@ -114,6 +116,7 @@ function createGame(roomName, io) {
     }
 
     function resetGame() {
+        gameTerminated = false;
         isStarted = false;
         pieceSequence.length = 0;
         Object.values(players).forEach((player) => {
@@ -177,6 +180,14 @@ function createGame(roomName, io) {
         );
     }
 
+    function endGame(winnerName, type) {
+        // NE faire qu'une seule émission de 'gameOver'
+        if (!gameTerminated) {
+            gameTerminated = true;  // On “verrouille”
+            io.to(roomName).emit('gameOver', { winner: winnerName, type });
+        }
+    }
+
     function handlePlayerGameOver(playerId) {
         console.log(`→ handlePlayerGameOver pour le joueur ${playerId}`);
         const player = players[playerId];
@@ -188,21 +199,21 @@ function createGame(roomName, io) {
         console.log(`handlePlayerGameOver: isGameOver = true pour le joueur ${player.name}`);
         player.notifyEndGame();
 
-        const possibleWinner = getWinner();
+        const possibleWinner = getWinner(); // activePlayers.length === 1 => le vainqueur
         console.log(`getWinner() a renvoyé:`, possibleWinner);
 
         if (possibleWinner === null) {
+            // Plus aucun joueur en jeu => match nul
             console.log("→ 0 joueurs restants => match nul");
-            io.to(roomName).emit('gameOver', { type: 'draw' });
+            endGame(null, 'draw');
             resetGame();
         } else if (possibleWinner) {
+            // 1 joueur restant => c’est le vainqueur
             console.log(`→ 1 joueur restant => c'est ${possibleWinner.name} le vainqueur !`);
-            io.to(roomName).emit('gameOver', {
-                winner: possibleWinner?.name || null,
-                type: 'victory',
-            });
+            endGame(possibleWinner?.name || null, 'victory');
             resetGame();
         } else {
+            // La partie continue : on ne fait rien
             const activePlayers = Object.values(players).filter((p) => !p.isGameOver);
             console.log(`La partie continue avec ${activePlayers.length} joueur(s) actif(s).`);
         }
