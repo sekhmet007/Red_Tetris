@@ -800,19 +800,6 @@ function TetrisGame() {
       });
       socket.on('youAreLeader', () => setIsLeader(true));
       socket.on('roomsUpdated', (updatedRooms) => setRooms(updatedRooms));
-      /*socket.on('gameOver', (payload) => {
-        if (!payload) {
-          console.warn('[DEBUG] Reçu un "gameOver" vide ou undefined !');
-          return;
-        }
-        const { winner, type } = payload;
-        // Si type est aussi absent, on peut faire:
-        if (!('type' in payload)) {
-          console.warn('[DEBUG] Reçu un "gameOver" sans "type" !', payload);
-        }
-
-        handleGameOver({ winner, type });
-      });*/
       socket.on('gameReset', handleGameReset);
 
       return () => {
@@ -1176,7 +1163,7 @@ function TetrisGame() {
             </h2>
             <div className="score-display">Score final : {score}</div>
             <div className="game-over-buttons">
-              {(isLeader || mode === 'solo') && (
+              {( mode === 'solo') && (
                 <button
                   className="game-over-button retry-button"
                   onClick={resetGame}
@@ -1193,11 +1180,11 @@ function TetrisGame() {
                 🏠 Retour à l&apos;accueil
               </button>
             </div>
-            {mode === 'multiplayer' && !isLeader && (
+            {/* {mode === 'multiplayer' && !isLeader && (
               <p className="waiting-message">
                 En attente que le leader démarre une nouvelle partie...
               </p>
-            )}
+            )} */}
           </div>
         </div>
       )}

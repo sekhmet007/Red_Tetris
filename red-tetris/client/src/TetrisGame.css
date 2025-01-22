@@ -59,7 +59,7 @@ body {
   margin: 10px 0;
   font-size: 24px;
   font-weight: bold;
-  color: #ffeb3b;
+  color: #3bff6f;
 }
 
 .game-over {
@@ -85,7 +85,7 @@ body {
   font-size: 18px;
   font-weight: bold;
   background-color: #e74c3c;
-  color: white;
+  color: rgb(199, 199, 199);
   border: none;
   border-radius: 8px;
   cursor: pointer;
@@ -103,7 +103,7 @@ body {
   margin-top: 20px;
   padding: 12px 24px;
   background-color: #ff5555;
-  color: white;
+  color: rgb(203, 203, 203);
   border: none;
   border-radius: 8px;
   font-size: 16px;
